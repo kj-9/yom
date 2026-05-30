@@ -111,6 +111,9 @@ HTML_SHELL = """<!DOCTYPE html>
       color: var(--muted);
       margin: 16px 0 8px;
     }
+    .tree-item {
+      margin: 2px 0;
+    }
     .node {
       display: block;
       width: 100%;
@@ -129,9 +132,33 @@ HTML_SHELL = """<!DOCTYPE html>
       color: #6b2405;
     }
     .folder {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      border: 0;
+      background: transparent;
       font-weight: 700;
       color: var(--muted);
       padding: 8px 10px 4px;
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+    }
+    .folder:hover {
+      color: var(--accent);
+    }
+    .folder-caret {
+      display: inline-block;
+      width: 0.95rem;
+      color: var(--accent);
+      transition: transform 140ms ease;
+    }
+    .tree-item.collapsed > .folder .folder-caret {
+      transform: rotate(-90deg);
+    }
+    .tree-item.collapsed > ul {
+      display: none;
     }
     article {
       max-width: 920px;
@@ -202,7 +229,7 @@ HTML_SHELL = """<!DOCTYPE html>
     </main>
   </div>
   <script>
-    const state = { tree: null, currentPath: null, version: 0 };
+    const state = { tree: null, currentPath: null, version: 0, collapsed: new Set() };
     const rootLabel = document.getElementById("rootLabel");
     const treeRoot = document.getElementById("treeRoot");
     const docRoot = document.getElementById("docRoot");
@@ -224,12 +251,53 @@ HTML_SHELL = """<!DOCTYPE html>
       history.replaceState({}, "", url);
     }
 
+    function ancestorDirectoryPaths(path) {
+      if (!path) {
+        return [];
+      }
+      const parts = path.split("/");
+      const directories = [];
+      for (let index = 0; index < parts.length - 1; index += 1) {
+        directories.push(parts.slice(0, index + 1).join("/"));
+      }
+      return directories;
+    }
+
+    function isCollapsed(path) {
+      if (!path) {
+        return false;
+      }
+      return state.collapsed.has(path) && !ancestorDirectoryPaths(state.currentPath).includes(path);
+    }
+
+    function toggleDirectory(path) {
+      if (state.collapsed.has(path)) {
+        state.collapsed.delete(path);
+      } else {
+        state.collapsed.add(path);
+      }
+      if (state.tree) {
+        renderTree(state.tree);
+      }
+    }
+
     function renderTreeNode(node) {
       if (node.type === "directory") {
         const wrapper = document.createElement("li");
-        const label = document.createElement("div");
+        wrapper.className = "tree-item";
+        if (isCollapsed(node.path)) {
+          wrapper.classList.add("collapsed");
+        }
+        const label = document.createElement("button");
         label.className = "folder";
-        label.textContent = node.name;
+        label.type = "button";
+        label.onclick = () => toggleDirectory(node.path);
+        const caret = document.createElement("span");
+        caret.className = "folder-caret";
+        caret.textContent = "▾";
+        const text = document.createElement("span");
+        text.textContent = node.name;
+        label.append(caret, text);
         wrapper.appendChild(label);
         const list = document.createElement("ul");
         for (const child of node.children) {
