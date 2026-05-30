@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -16,7 +16,7 @@
       aria-expanded="false"
       aria-controls="sidebar"
     >
-      コンテンツ一覧
+      Contents
     </button>
     <div class="layout">
       <aside id="sidebar">
@@ -30,15 +30,15 @@
               Dark mode
             </button>
             <label class="palette-picker">
-              <span class="visually-hidden">カラープリセット</span>
-              <select id="paletteSelect" aria-label="カラープリセット">
+              <span class="visually-hidden">Color preset</span>
+              <select id="paletteSelect" aria-label="Color preset">
                 <option value="paper">Paper</option>
                 <option value="forest">Forest</option>
                 <option value="sea">Sea</option>
               </select>
             </label>
             <div class="status" id="statusBadge" data-state="ready">
-              <span class="dot"></span><span id="statusText">監視中</span>
+              <span class="dot"></span><span id="statusText">Watching</span>
             </div>
           </div>
         </div>
@@ -54,7 +54,7 @@
         </div>
         <label class="search">
           <span class="search-label">Filter</span>
-          <input id="treeSearch" type="search" placeholder="項目を絞り込む" />
+          <input id="treeSearch" type="search" placeholder="Filter items" />
         </label>
         <div class="tree-label">Contents</div>
         <div id="treeRoot"></div>
@@ -64,15 +64,17 @@
           <div class="doc-header">
             <div>
               <div class="meta" id="docMeta"></div>
-              <h1 class="doc-title" id="docTitle">ドキュメントを選択</h1>
+              <h1 class="doc-title" id="docTitle">Select a document</h1>
               <div class="doc-jump-list" id="docJumpList" hidden></div>
             </div>
             <div class="doc-actions">
-              <a id="docOpen" class="doc-link" href="#" hidden>現在のパス</a>
+              <a id="docOpen" class="doc-link" href="#" hidden
+                >Open current path</a
+              >
             </div>
           </div>
           <div id="docRoot" class="empty">
-            左の一覧から項目を選択してください。
+            Select an item from the list on the left.
           </div>
           <section class="outline" id="outlineSection" hidden>
             <div class="outline-label">Sections</div>

@@ -191,7 +191,7 @@ function renderTree(tree) {
   if (!list.childNodes.length) {
     const empty = document.createElement("div");
     empty.className = "tree-empty";
-    empty.textContent = "一致する項目がありません。";
+    empty.textContent = "No matching items.";
     treeRoot.appendChild(empty);
   } else {
     treeRoot.appendChild(list);
@@ -223,7 +223,7 @@ async function refreshTree(preferredPath = null) {
 }
 
 async function loadDoc(path, options = {}) {
-  docTitle.textContent = "読み込み中...";
+  docTitle.textContent = "Loading...";
   const response = await fetch(`/api/doc?path=${encodeURIComponent(path)}`);
   if (!response.ok) {
     if (!options.fallbackPathTried && state.tree) {
@@ -233,12 +233,12 @@ async function loadDoc(path, options = {}) {
       }
     }
     docMeta.textContent = path;
-    docTitle.textContent = "読み込み失敗";
+    docTitle.textContent = "Load failed";
     docOpen.hidden = true;
     docJumpList.hidden = true;
     outlineSection.hidden = true;
     docRoot.className = "empty";
-    docRoot.textContent = "項目を読み込めませんでした。";
+    docRoot.textContent = "Could not load the item.";
     return;
   }
   const payload = await response.json();
@@ -252,7 +252,7 @@ async function loadDoc(path, options = {}) {
       .replace(/\.[^./]+$/, "") || payload.path;
   docOpen.hidden = false;
   docOpen.href = `/?path=${encodeURIComponent(payload.path)}`;
-  docOpen.textContent = "この項目へのリンク";
+  docOpen.textContent = "Link to this item";
   docRoot.className = "";
   docRoot.innerHTML = payload.html;
   renderOutline();
@@ -314,13 +314,13 @@ const events = new EventSource("/events");
 events.onmessage = async (event) => {
   const payload = JSON.parse(event.data);
   setStatus(
-    `更新 ${new Date(payload.timestamp * 1000).toLocaleTimeString()}`,
+    `Updated ${new Date(payload.timestamp * 1000).toLocaleTimeString()}`,
     "updated",
   );
   await refreshTree(state.currentPath);
 };
 events.onerror = () => {
-  setStatus("接続を再試行中", "reconnecting");
+  setStatus("Reconnecting", "reconnecting");
 };
 
 window.addEventListener("popstate", () => {
@@ -349,7 +349,7 @@ mobileNavToggle.addEventListener("click", () => {
   const nextOpen = !document.body.classList.contains("nav-open");
   document.body.classList.toggle("nav-open", nextOpen);
   mobileNavToggle.setAttribute("aria-expanded", String(nextOpen));
-  mobileNavToggle.textContent = nextOpen ? "閉じる" : "コンテンツ一覧";
+  mobileNavToggle.textContent = nextOpen ? "Close" : "Contents";
 });
 
 themeToggle.addEventListener("click", () => {
@@ -365,5 +365,5 @@ paletteSelect.addEventListener("change", () => {
 
 initializeTheme();
 initializePalette();
-setStatus("監視中", "ready");
+setStatus("Watching", "ready");
 refreshTree(currentPathFromUrl());

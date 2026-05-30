@@ -10,54 +10,54 @@ from yom.server import DEFAULT_MARKDOWN_EXTENSIONS, serve
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="yom",
-        description="Markdown ファイルツリーをローカルサイトとして表示します。",
+        description="Serve a Markdown file tree as a local website.",
     )
     parser.add_argument(
         "root",
         nargs="?",
         default=".",
-        help="探索対象ディレクトリ",
+        help="Directory to scan",
     )
-    parser.add_argument("--host", default="127.0.0.1", help="待受ホスト")
-    parser.add_argument("--port", default=8000, type=int, help="待受ポート")
+    parser.add_argument("--host", default="127.0.0.1", help="Bind host")
+    parser.add_argument("--port", default=8000, type=int, help="Bind port")
     parser.add_argument(
         "--interval",
         default=0.7,
         type=float,
-        help="更新監視のポーリング間隔(秒)",
+        help="Polling interval for change detection, in seconds",
     )
     parser.add_argument(
         "--no-watch",
         action="store_true",
-        help="ファイル更新監視を無効にする",
+        help="Disable file watching",
     )
     parser.add_argument(
         "--title",
         default="yom",
-        help="ブラウザのタイトルバーに表示する文字列",
+        help="Browser window title",
     )
     parser.add_argument(
         "--no-open",
         action="store_true",
-        help="起動時のブラウザ自動オープンを無効にする",
+        help="Disable automatic browser launch on startup",
     )
     parser.add_argument(
         "--markdown-extension",
         action="append",
         default=[],
         metavar="NAME",
-        help="追加で有効化する Markdown 拡張機能。複数回指定可",
+        help="Enable an additional Markdown extension. May be specified multiple times",
     )
     parser.add_argument(
         "--no-default-extensions",
         action="store_true",
-        help="既定の Markdown 拡張機能を無効にする",
+        help="Disable the built-in Markdown extensions",
     )
     parser.add_argument(
         "--watch-mode",
         choices=["auto", "poll", "watchdog"],
         default="auto",
-        help="監視方式。auto は watchdog 優先、未導入時は poll にフォールバック",
+        help="Watch backend. auto prefers watchdog and falls back to poll if unavailable",
     )
     return parser
 
@@ -67,9 +67,9 @@ def main() -> int:
     args = parser.parse_args()
     root = Path(args.root).expanduser().resolve()
     if not root.exists():
-        parser.error(f"ディレクトリが存在しません: {root}")
+        parser.error(f"Directory does not exist: {root}")
     if not root.is_dir():
-        parser.error(f"ディレクトリではありません: {root}")
+        parser.error(f"Not a directory: {root}")
     markdown_extensions = [] if args.no_default_extensions else list(DEFAULT_MARKDOWN_EXTENSIONS)
     markdown_extensions.extend(args.markdown_extension)
     try:
@@ -89,7 +89,7 @@ def main() -> int:
     except OSError as exc:
         if exc.errno == errno.EADDRINUSE:
             parser.error(
-                f"ポート {args.port} はすでに使用中です。`--port` で別の番号を指定してください。"
+                f"Port {args.port} is already in use. Choose a different one with `--port`."
             )
         raise
     return 0
