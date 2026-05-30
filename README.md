@@ -66,6 +66,14 @@ Enable an extra Markdown extension:
 yom /path/to/docs --markdown-extension admonition
 ```
 
+`--markdown-extension` does not enable a yom-specific feature. It passes an additional
+extension name through to the underlying Python-Markdown renderer. For example,
+`admonition` enables admonition block syntax supported by Python-Markdown.
+
+By default, yom enables `fenced_code`, `tables`, `toc`, and `sane_lists`. Use
+`--no-default-extensions` if you want to start from an empty extension set and opt in
+only to the extensions you need.
+
 Run with the minimal Markdown configuration:
 
 ```bash

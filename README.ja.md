@@ -89,6 +89,13 @@ cd ~/work/repos/yom
 uv run yom work --markdown-extension admonition
 ```
 
+`--markdown-extension` は `yom` 独自の機能を切り替えるものではなく、内部で使っている
+Python-Markdown に追加の拡張名を渡すためのオプションです。たとえば `admonition` を
+指定すると、Python-Markdown が提供する注意書きブロック構文を有効にできます。
+
+既定では `fenced_code`、`tables`、`toc`、`sane_lists` が有効です。必要な拡張だけを
+明示的に使いたい場合は `--no-default-extensions` で既定拡張を外してから追加します。
+
 既定拡張を使わずに最小構成で試したい場合:
 
 ```bash
