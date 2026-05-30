@@ -7,6 +7,7 @@ import posixpath
 import queue
 import threading
 import time
+import webbrowser
 from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -24,7 +25,7 @@ HTML_SHELL = """<!DOCTYPE html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>yom</title>
+  <title>{title}</title>
   <style>
     :root {
       color-scheme: light;
@@ -314,6 +315,10 @@ HTML_SHELL = """<!DOCTYPE html>
 """
 
 
+def render_html_shell(title: str) -> str:
+    return HTML_SHELL.replace("<title>{title}</title>", f"<title>{html.escape(title)}</title>")
+
+
 @dataclass
 class Node:
     name: str
@@ -462,12 +467,12 @@ def render_markdown(text: str) -> str:
     return f"<pre><code>{escaped}</code></pre>"
 
 
-def make_handler(root: Path, index: SiteIndex, broker: WatchBroker) -> type[BaseHTTPRequestHandler]:
+def make_handler(root: Path, index: SiteIndex, broker: WatchBroker, title: str) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
             if parsed.path == "/":
-                return self._send_html(HTML_SHELL)
+                return self._send_html(render_html_shell(title))
             if parsed.path == "/api/tree":
                 return self._send_json(index.snapshot())
             if parsed.path == "/api/doc":
@@ -536,18 +541,32 @@ def make_handler(root: Path, index: SiteIndex, broker: WatchBroker) -> type[Base
     return Handler
 
 
-def serve(root: Path, host: str, port: int, interval: float) -> None:
+def serve(
+    root: Path,
+    host: str,
+    port: int,
+    interval: float,
+    *,
+    watch: bool = True,
+    title: str = "yom",
+    open_browser: bool = True,
+) -> None:
     index = SiteIndex(root)
     broker = WatchBroker()
     watcher = PollingWatcher(root=root, index=index, broker=broker, interval=interval)
-    handler = make_handler(root=root, index=index, broker=broker)
+    handler = make_handler(root=root, index=index, broker=broker, title=title)
     server = ThreadingHTTPServer((host, port), handler)
-    watcher.start()
-    print(f"yom serving {root} at http://{host}:{port}")
+    if watch:
+        watcher.start()
+    url = f"http://{host}:{port}"
+    print(f"yom serving {root} at {url}")
+    if open_browser:
+        webbrowser.open(url)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
-        watcher.stop()
+        if watch:
+            watcher.stop()
         server.server_close()

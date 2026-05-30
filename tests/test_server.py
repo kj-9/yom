@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yom.server import PollingWatcher, SiteIndex, WatchBroker
+from yom.server import PollingWatcher, SiteIndex, WatchBroker, render_html_shell
 
 
 def write(path: Path, content: str) -> None:
@@ -78,3 +78,8 @@ def test_polling_watcher_scan_ignores_hidden_paths(tmp_path: Path) -> None:
     snapshot = watcher._scan()
 
     assert list(snapshot) == ["visible.md"]
+
+
+def test_make_handler_injects_custom_title(tmp_path: Path) -> None:
+    assert "<title>docs portal</title>" in render_html_shell("docs portal")
+    assert "<title>&lt;docs&gt;</title>" in render_html_shell("<docs>")
