@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import importlib
 import json
 import mimetypes
 import posixpath
@@ -9,25 +10,43 @@ import subprocess
 import threading
 import time
 import webbrowser
+from collections.abc import Mapping
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 from pathlib import Path
+from types import ModuleType
+from typing import Any, Protocol, runtime_checkable
 from urllib.parse import parse_qs, urlparse
 
 try:
     import markdown as markdown_lib
 except ModuleNotFoundError:  # pragma: no cover
-    markdown_lib = None
+    markdown_lib: ModuleType | None = None
+
+
+class Watcher(Protocol):
+    def start(self) -> None: ...
+
+    def stop(self) -> None: ...
+
+
+@runtime_checkable
+class Joinable(Protocol):
+    def join(self, timeout: float | None = None) -> None: ...
+
 
 try:
-    from watchdog.events import FileSystemEventHandler
-    from watchdog.observers import Observer
+    _watchdog_events = importlib.import_module("watchdog.events")
+    _watchdog_observers = importlib.import_module("watchdog.observers")
 except ModuleNotFoundError:  # pragma: no cover
-    FileSystemEventHandler = None
-    Observer = None
+    WatchdogEventHandlerBase: Any = object
+    WatchdogObserver: Any = None
+else:
+    WatchdogEventHandlerBase: Any = _watchdog_events.FileSystemEventHandler
+    WatchdogObserver: Any = _watchdog_observers.Observer
 
 
 HTML_SHELL = files("yom").joinpath("assets/shell.html").read_text(encoding="utf-8")
@@ -205,7 +224,7 @@ class PollingWatcher(threading.Thread):
         return snapshot
 
 
-class WatchdogEventHandler(FileSystemEventHandler):  # type: ignore[misc]
+class WatchdogEventHandler(WatchdogEventHandlerBase):
     def __init__(self, root: Path, index: SiteIndex, broker: WatchBroker) -> None:
         self.root = root
         self.index = index
@@ -256,14 +275,14 @@ def gitignored_paths(root: Path) -> set[str]:
 
 def create_watcher(
     root: Path, index: SiteIndex, broker: WatchBroker, interval: float, mode: str
-) -> tuple[object | None, str]:
+) -> tuple[Watcher | None, str]:
     if mode not in {"auto", "poll", "watchdog", "off"}:
         raise ValueError(f"unsupported watch mode: {mode}")
     if mode == "off":
         return None, "off"
-    if mode in {"auto", "watchdog"} and Observer is not None and FileSystemEventHandler is not None:
+    if mode in {"auto", "watchdog"} and WatchdogObserver is not None:
         event_handler = WatchdogEventHandler(root=root, index=index, broker=broker)
-        observer = Observer()
+        observer = WatchdogObserver()
         observer.schedule(event_handler, str(root), recursive=True)
         return observer, "watchdog"
     if mode == "watchdog":
@@ -271,11 +290,10 @@ def create_watcher(
     return PollingWatcher(root=root, index=index, broker=broker, interval=interval), "poll"
 
 
-def stop_watcher(watcher: object) -> None:
+def stop_watcher(watcher: Watcher) -> None:
     watcher.stop()
-    join = getattr(watcher, "join", None)
-    if callable(join):
-        join(timeout=1)
+    if isinstance(watcher, Joinable):
+        watcher.join(timeout=1)
 
 
 def render_markdown(text: str, *, extensions: list[str] | None = None) -> str:
@@ -462,7 +480,7 @@ def make_handler(
             self.end_headers()
             self.wfile.write(encoded)
 
-        def _send_json(self, payload: dict[str, object]) -> None:
+        def _send_json(self, payload: Mapping[str, object]) -> None:
             encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json; charset=utf-8")
