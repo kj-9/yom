@@ -619,7 +619,7 @@ main {
 }
 
 .content-panel {
-  padding: 34px 40px 42px;
+  padding: 24px 40px 42px;
 }
 
 .view-mode {
@@ -802,6 +802,10 @@ blockquote {
   line-height: 1.65;
 }
 
+#docRoot > :first-child {
+  margin-top: 0;
+}
+
 #docRoot > h1:first-child {
   font-size: 2.55rem;
   letter-spacing: 0;
@@ -897,7 +901,7 @@ blockquote {
   }
 
   .content-panel {
-    padding: 22px 18px 28px;
+    padding: 18px 18px 28px;
   }
 
   .sidebar-meta {
