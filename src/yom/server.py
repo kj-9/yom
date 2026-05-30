@@ -425,6 +425,7 @@ def make_handler(
             source = target.read_text(encoding="utf-8")
             payload = {
                 "path": target.relative_to(root).as_posix(),
+                "raw": source,
                 "html": rewrite_relative_links(
                     render_markdown(source, extensions=markdown_extensions),
                     source=target,

@@ -4,10 +4,16 @@ const state = {
   version: 0,
   firstPath: null,
   collapsed: new Set(),
+  currentHtml: "",
+  currentRaw: "",
+  viewMode: "rendered",
+  loadRequestId: 0,
 };
 const rootLabel = document.getElementById("rootLabel");
 const treeRoot = document.getElementById("treeRoot");
 const docRoot = document.getElementById("docRoot");
+const rawRoot = document.getElementById("rawRoot");
+const rawCode = rawRoot.querySelector("code");
 const docMeta = document.getElementById("docMeta");
 const docToc = document.getElementById("docToc");
 const docTocRoot = document.getElementById("docTocRoot");
@@ -22,10 +28,13 @@ const collapseTree = document.getElementById("collapseTree");
 const expandTree = document.getElementById("expandTree");
 const sidebarResizer = document.getElementById("sidebarResizer");
 const layout = document.querySelector(".layout");
+const renderedMode = document.getElementById("renderedMode");
+const rawMode = document.getElementById("rawMode");
 
 const THEME_KEY = "yom-theme";
 const PALETTE_KEY = "yom-palette";
 const SIDEBAR_WIDTH_KEY = "yom-sidebar-width";
+const VIEW_MODE_KEY = "yom-view-mode";
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 560;
 const SIDEBAR_DEFAULT_WIDTH = 304;
@@ -53,6 +62,11 @@ function initializeTheme() {
 function initializePalette() {
   const saved = localStorage.getItem(PALETTE_KEY);
   applyPalette(saved || "paper");
+}
+
+function initializeViewMode() {
+  const saved = localStorage.getItem(VIEW_MODE_KEY);
+  setViewMode(saved === "raw" ? "raw" : "rendered", { skipRender: true });
 }
 
 function clampSidebarWidth(width) {
@@ -224,6 +238,63 @@ function renderTree(tree) {
   scrollActiveNodeIntoView();
 }
 
+function renderCurrentDocument() {
+  if (state.viewMode === "raw") {
+    docRoot.hidden = true;
+    rawRoot.hidden = false;
+    rawCode.textContent = state.currentRaw;
+    docToc.hidden = true;
+    return;
+  }
+  rawRoot.hidden = true;
+  docRoot.hidden = false;
+  docRoot.className = "";
+  docRoot.innerHTML = state.currentHtml;
+  renderOutline();
+}
+
+function renderLoadingState(path) {
+  docMeta.textContent = path;
+  docToc.hidden = true;
+  if (state.viewMode === "raw") {
+    docRoot.hidden = true;
+    rawRoot.hidden = false;
+    rawCode.textContent = "Loading...";
+    return;
+  }
+  rawRoot.hidden = true;
+  docRoot.className = "empty";
+  docRoot.hidden = false;
+  docRoot.textContent = "Loading...";
+}
+
+function renderLoadError(path) {
+  docMeta.textContent = path;
+  docToc.hidden = true;
+  if (state.viewMode === "raw") {
+    docRoot.hidden = true;
+    rawRoot.hidden = false;
+    rawCode.textContent = "Could not load the item.";
+    return;
+  }
+  rawRoot.hidden = true;
+  docRoot.className = "empty";
+  docRoot.hidden = false;
+  docRoot.textContent = "Could not load the item.";
+}
+
+function setViewMode(mode, options = {}) {
+  state.viewMode = mode;
+  localStorage.setItem(VIEW_MODE_KEY, mode);
+  renderedMode.classList.toggle("active", mode === "rendered");
+  rawMode.classList.toggle("active", mode === "raw");
+  renderedMode.setAttribute("aria-pressed", String(mode === "rendered"));
+  rawMode.setAttribute("aria-pressed", String(mode === "raw"));
+  if (!options.skipRender && state.currentPath) {
+    renderCurrentDocument();
+  }
+}
+
 function scrollActiveNodeIntoView() {
   const activeNode = treeRoot.querySelector(".node.active");
   if (activeNode) {
@@ -248,11 +319,13 @@ async function refreshTree(preferredPath = null) {
 }
 
 async function loadDoc(path, options = {}) {
-  docMeta.textContent = path;
-  docToc.hidden = true;
-  docRoot.className = "empty";
-  docRoot.textContent = "Loading...";
+  const requestId = state.loadRequestId + 1;
+  state.loadRequestId = requestId;
+  renderLoadingState(path);
   const response = await fetch(`/api/doc?path=${encodeURIComponent(path)}`);
+  if (requestId !== state.loadRequestId) {
+    return;
+  }
   if (!response.ok) {
     if (!options.fallbackPathTried && state.tree) {
       const fallbackPath = state.firstPath ?? state.currentPath;
@@ -260,19 +333,22 @@ async function loadDoc(path, options = {}) {
         return loadDoc(fallbackPath, { ...options, fallbackPathTried: true });
       }
     }
-    docMeta.textContent = path;
-    docToc.hidden = true;
-    docRoot.className = "empty";
-    docRoot.textContent = "Could not load the item.";
+    renderLoadError(path);
     return;
   }
   const payload = await response.json();
+  if (requestId !== state.loadRequestId) {
+    return;
+  }
   state.currentPath = payload.path;
+  state.currentHtml = payload.html;
+  state.currentRaw = payload.raw;
   updateUrl(payload.path);
   docMeta.textContent = payload.path;
   docRoot.className = "";
-  docRoot.innerHTML = payload.html;
-  renderOutline();
+  docRoot.innerHTML = state.currentHtml;
+  rawCode.textContent = state.currentRaw;
+  renderCurrentDocument();
   if (window.innerWidth <= 900) {
     document.body.classList.remove("nav-open");
     mobileNavToggle.setAttribute("aria-expanded", "false");
@@ -375,6 +451,8 @@ paletteSelect.addEventListener("change", () => {
 
 collapseTree.addEventListener("click", collapseAllDirectories);
 expandTree.addEventListener("click", expandAllDirectories);
+renderedMode.addEventListener("click", () => setViewMode("rendered"));
+rawMode.addEventListener("click", () => setViewMode("raw"));
 
 sidebarResizer.addEventListener("pointerdown", (event) => {
   if (window.innerWidth <= 900) {
@@ -433,6 +511,7 @@ sidebarResizer.addEventListener("keydown", (event) => {
 
 initializeTheme();
 initializePalette();
+initializeViewMode();
 initializeSidebarWidth();
 setStatus("Watching", "ready");
 refreshTree(currentPathFromUrl());

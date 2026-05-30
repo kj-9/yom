@@ -78,11 +78,25 @@
               </summary>
               <nav id="docTocRoot"></nav>
             </details>
+            <div class="view-mode" role="group" aria-label="View mode">
+              <button
+                class="active"
+                id="renderedMode"
+                type="button"
+                aria-pressed="true"
+              >
+                Rendered
+              </button>
+              <button id="rawMode" type="button" aria-pressed="false">
+                Raw
+              </button>
+            </div>
           </div>
           <article class="content-panel">
             <div id="docRoot" class="empty">
               Select an item from the list on the left.
             </div>
+            <pre id="rawRoot" class="raw-view" hidden><code></code></pre>
           </article>
         </div>
       </main>
