@@ -1,31 +1,68 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{title}</title>
-  <style>
-{style}
-  </style>
-</head>
-<body>
-  <div class="layout">
-    <aside>
-      <h1 class="brand">yom</h1>
-      <p class="sub" id="rootLabel"></p>
-      <div class="status"><span class="dot"></span><span id="statusText">監視中</span></div>
-      <div class="tree-label">Markdown Tree</div>
-      <div id="treeRoot"></div>
-    </aside>
-    <main>
-      <article>
-        <div class="meta" id="docMeta"></div>
-        <div id="docRoot" class="empty">Markdown ファイルを選択してください。</div>
-      </article>
-    </main>
-  </div>
-  <script>
-{script}
-  </script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>__YOM_TITLE__</title>
+    <style>
+      __YOM_STYLE__
+    </style>
+  </head>
+  <body>
+    <button
+      class="mobile-nav-toggle"
+      id="mobileNavToggle"
+      type="button"
+      aria-expanded="false"
+      aria-controls="sidebar"
+    >
+      ドキュメント一覧
+    </button>
+    <div class="layout">
+      <aside id="sidebar">
+        <div class="sidebar-header">
+          <div>
+            <h1 class="brand">yom</h1>
+            <p class="sub" id="rootLabel"></p>
+          </div>
+          <div class="status">
+            <span class="dot"></span><span id="statusText">監視中</span>
+          </div>
+        </div>
+        <label class="search">
+          <span class="search-label">Search</span>
+          <input
+            id="treeSearch"
+            type="search"
+            placeholder="Markdown を絞り込む"
+          />
+        </label>
+        <div class="tree-label">Markdown Tree</div>
+        <div id="treeRoot"></div>
+      </aside>
+      <main>
+        <article>
+          <div class="doc-header">
+            <div>
+              <div class="meta" id="docMeta"></div>
+              <h1 class="doc-title" id="docTitle">ドキュメントを選択</h1>
+            </div>
+            <div class="doc-actions">
+              <a id="docOpen" class="doc-link" href="#" hidden>現在のパス</a>
+            </div>
+          </div>
+          <div id="docRoot" class="empty">
+            Markdown ファイルを選択してください。
+          </div>
+          <section class="outline" id="outlineSection" hidden>
+            <div class="outline-label">Outline</div>
+            <nav id="outlineRoot"></nav>
+          </section>
+        </article>
+      </main>
+    </div>
+    <script>
+      __YOM_SCRIPT__;
+    </script>
+  </body>
 </html>

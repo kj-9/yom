@@ -33,6 +33,14 @@ cd ~/work/repos/yom
 cd ~/work/repos/yom
 uv run ruff check .
 uv run ruff format --check .
+XDG_CACHE_HOME="$PWD/.cache" pnpx prettier@3 --check "src/yom/assets/*.{html,css,js}"
+```
+
+フロントエンド資産を整形する場合:
+
+```bash
+cd ~/work/repos/yom
+XDG_CACHE_HOME="$PWD/.cache" pnpx prettier@3 --write "src/yom/assets/*.{html,css,js}"
 ```
 
 UI テンプレートは [src/yom/assets](/Users/kh03/work/repos/yom/src/yom/assets) に分離してあり、見た目やクライアント側挙動を調整したいときはここを編集します。

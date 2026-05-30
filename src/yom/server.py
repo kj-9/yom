@@ -35,10 +35,10 @@ APP_SCRIPT = files("yom").joinpath("assets/app.js").read_text(encoding="utf-8")
 
 
 def render_html_shell(title: str) -> str:
-    return HTML_SHELL.format(
-        title=html.escape(title),
-        style=APP_STYLE,
-        script=APP_SCRIPT,
+    return (
+        HTML_SHELL.replace("__YOM_TITLE__", html.escape(title))
+        .replace("__YOM_STYLE__", APP_STYLE)
+        .replace("__YOM_SCRIPT__", APP_SCRIPT)
     )
 
 

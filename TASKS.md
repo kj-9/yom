@@ -15,6 +15,7 @@
 - [x] 更新監視の挙動を確認するテストまたは検証手順を整える
 - [x] `ruff` か `python -m compileall` ベースの最低限の静的チェックを入れる
 - [x] `ruff` の lint / format チェックを入れる
+- [x] HTML / CSS / JS 資産向けに `pnpx prettier` を導入する
 
 ## 機能改善
 
