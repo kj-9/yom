@@ -25,21 +25,32 @@
             <h1 class="brand">yom</h1>
             <p class="sub" id="rootLabel"></p>
           </div>
-          <div class="sidebar-tools">
-            <button class="theme-toggle" id="themeToggle" type="button">
-              Dark mode
-            </button>
-            <label class="palette-picker">
-              <span class="visually-hidden">Color preset</span>
-              <select id="paletteSelect" aria-label="Color preset">
-                <option value="paper">Paper</option>
-                <option value="forest">Forest</option>
-                <option value="sea">Sea</option>
-              </select>
-            </label>
+          <div class="sidebar-meta">
             <div class="status" id="statusBadge" data-state="ready">
               <span class="dot"></span><span id="statusText">Watching</span>
             </div>
+            <details class="settings-panel">
+              <summary
+                class="settings-toggle"
+                id="settingsToggle"
+                aria-label="Open display settings"
+              >
+                <span aria-hidden="true">&#9881;</span>
+              </summary>
+              <div class="settings-card">
+                <button class="theme-toggle" id="themeToggle" type="button">
+                  Dark mode
+                </button>
+                <label class="palette-picker">
+                  <span class="settings-label">Palette</span>
+                  <select id="paletteSelect" aria-label="Color preset">
+                    <option value="paper">Paper</option>
+                    <option value="forest">Forest</option>
+                    <option value="sea">Sea</option>
+                  </select>
+                </label>
+              </div>
+            </details>
           </div>
         </div>
         <label class="search">

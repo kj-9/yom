@@ -24,6 +24,7 @@ const treeSearch = document.getElementById("treeSearch");
 const mobileNavToggle = document.getElementById("mobileNavToggle");
 const themeToggle = document.getElementById("themeToggle");
 const paletteSelect = document.getElementById("paletteSelect");
+const settingsPanel = document.querySelector(".settings-panel");
 const collapseTree = document.getElementById("collapseTree");
 const expandTree = document.getElementById("expandTree");
 const sidebarResizer = document.getElementById("sidebarResizer");
@@ -436,6 +437,21 @@ mobileNavToggle.addEventListener("click", () => {
   document.body.classList.toggle("nav-open", nextOpen);
   mobileNavToggle.setAttribute("aria-expanded", String(nextOpen));
   mobileNavToggle.textContent = nextOpen ? "Close" : "Contents";
+});
+
+document.addEventListener("click", (event) => {
+  if (!settingsPanel?.open) {
+    return;
+  }
+  if (!settingsPanel.contains(event.target)) {
+    settingsPanel.open = false;
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && settingsPanel?.open) {
+    settingsPanel.open = false;
+  }
 });
 
 themeToggle.addEventListener("click", () => {

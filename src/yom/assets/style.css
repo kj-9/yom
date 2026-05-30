@@ -264,7 +264,7 @@ body.resizing-sidebar {
 
 .sidebar-header {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
   margin-bottom: 12px;
@@ -287,15 +287,16 @@ body.resizing-sidebar {
   word-break: break-all;
 }
 
-.sidebar-tools {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
+.sidebar-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .theme-toggle,
 .palette-picker select,
-.status {
+.status,
+.settings-toggle {
   min-height: 38px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -305,24 +306,83 @@ body.resizing-sidebar {
 }
 
 .theme-toggle {
-  padding: 6px 8px;
+  width: 100%;
+  padding: 7px 10px;
   cursor: pointer;
   font-size: 0.82rem;
 }
 
 .theme-toggle:hover,
-.palette-picker select:hover {
+.palette-picker select:hover,
+.settings-toggle:hover {
   border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
   background: var(--accent-wash);
 }
 
+.settings-panel {
+  position: relative;
+  margin-left: auto;
+}
+
+.settings-panel[open] {
+  z-index: 20;
+}
+
+.settings-panel summary {
+  list-style: none;
+}
+
+.settings-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  padding: 0;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.settings-panel[open] .settings-toggle {
+  color: var(--accent-strong);
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  background: var(--accent-wash);
+}
+
+.settings-card {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(220px, calc(100vw - 48px));
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--content-bg) 96%, transparent);
+  box-shadow: var(--shadow);
+}
+
+.settings-label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .palette-picker {
   position: relative;
+  display: grid;
+  gap: 6px;
 }
 
 .palette-picker select {
   width: 100%;
-  padding: 6px 28px 6px 8px;
+  padding: 7px 28px 7px 10px;
   cursor: pointer;
   appearance: none;
   font-size: 0.82rem;
@@ -343,15 +403,14 @@ body.resizing-sidebar {
 }
 
 .status {
-  grid-column: 1 / -1;
   display: inline-flex;
   gap: 8px;
   align-items: center;
-  justify-content: center;
   min-height: 32px;
-  padding: 6px 8px;
+  padding: 6px 10px;
   color: var(--muted);
   font-size: 0.78rem;
+  white-space: nowrap;
 }
 
 .dot {
@@ -364,17 +423,17 @@ body.resizing-sidebar {
 
 .search {
   display: grid;
-  gap: 5px;
-  margin-bottom: 8px;
+  gap: 4px;
+  margin-bottom: 10px;
 }
 
 .search-label,
 .tree-label,
 .doc-kicker {
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
 }
 
 .search input {
@@ -382,10 +441,11 @@ body.resizing-sidebar {
   border: 1px solid var(--border);
   background: var(--input-bg);
   border-radius: 6px;
-  padding: 7px 9px;
+  min-height: 34px;
+  padding: 6px 9px;
   color: var(--text);
   outline: none;
-  font-size: 0.86rem;
+  font-size: 0.82rem;
 }
 
 .search input::placeholder {
@@ -398,9 +458,11 @@ body.resizing-sidebar {
 }
 
 .tree-toolbar {
-  display: grid;
-  gap: 5px;
-  margin: 10px 0 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 6px;
 }
 
 .tree-label {
@@ -410,19 +472,18 @@ body.resizing-sidebar {
 .tree-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .tree-actions button {
-  flex: 1 1 0;
   min-height: 24px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--input-bg);
   color: var(--muted);
-  padding: 3px 6px;
+  padding: 3px 8px;
   cursor: pointer;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   line-height: 1.15;
 }
 
@@ -945,18 +1006,37 @@ blockquote {
     padding: 14px;
   }
 
+  .sidebar-meta {
+    align-items: stretch;
+  }
+
+  .status {
+    min-width: 0;
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
   #docRoot > h1:first-child {
     font-size: 1.95rem;
   }
 }
 
 @media (max-width: 520px) {
-  .sidebar-tools {
-    grid-template-columns: 1fr;
+  .tree-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
-  .status {
-    grid-column: auto;
+  .tree-actions {
+    width: 100%;
+  }
+
+  .tree-actions button {
+    flex: 1 1 0;
+  }
+
+  .settings-card {
+    width: min(220px, calc(100vw - 32px));
   }
 
   p,
