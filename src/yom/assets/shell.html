@@ -41,6 +41,22 @@
                 <button class="theme-toggle" id="themeToggle" type="button">
                   Dark mode
                 </button>
+                <div class="settings-group">
+                  <span class="settings-label">View</span>
+                  <div class="view-mode" role="group" aria-label="View mode">
+                    <button
+                      class="active"
+                      id="renderedMode"
+                      type="button"
+                      aria-pressed="true"
+                    >
+                      Rendered
+                    </button>
+                    <button id="rawMode" type="button" aria-pressed="false">
+                      Raw
+                    </button>
+                  </div>
+                </div>
                 <label class="palette-picker">
                   <span class="settings-label">Palette</span>
                   <select id="paletteSelect" aria-label="Color preset">
@@ -79,30 +95,6 @@
       ></div>
       <main>
         <div class="reader-shell">
-          <div class="doc-panel">
-            <div class="doc-kicker">Current file</div>
-            <div class="doc-file" id="docMeta"></div>
-            <details class="doc-toc" id="docToc" hidden>
-              <summary>
-                <span>Table of contents</span>
-                <span class="toc-count" id="tocCount"></span>
-              </summary>
-              <nav id="docTocRoot"></nav>
-            </details>
-            <div class="view-mode" role="group" aria-label="View mode">
-              <button
-                class="active"
-                id="renderedMode"
-                type="button"
-                aria-pressed="true"
-              >
-                Rendered
-              </button>
-              <button id="rawMode" type="button" aria-pressed="false">
-                Raw
-              </button>
-            </div>
-          </div>
           <article class="content-panel">
             <div id="docRoot" class="empty">
               Select an item from the list on the left.

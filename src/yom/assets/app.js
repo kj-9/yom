@@ -15,9 +15,6 @@ const docRoot = document.getElementById("docRoot");
 const rawRoot = document.getElementById("rawRoot");
 const rawCode = rawRoot.querySelector("code");
 const docMeta = document.getElementById("docMeta");
-const docToc = document.getElementById("docToc");
-const docTocRoot = document.getElementById("docTocRoot");
-const tocCount = document.getElementById("tocCount");
 const statusText = document.getElementById("statusText");
 const statusBadge = document.getElementById("statusBadge");
 const treeSearch = document.getElementById("treeSearch");
@@ -35,7 +32,6 @@ const rawMode = document.getElementById("rawMode");
 const THEME_KEY = "yom-theme";
 const PALETTE_KEY = "yom-palette";
 const SIDEBAR_WIDTH_KEY = "yom-sidebar-width";
-const VIEW_MODE_KEY = "yom-view-mode";
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 560;
 const SIDEBAR_DEFAULT_WIDTH = 304;
@@ -66,8 +62,7 @@ function initializePalette() {
 }
 
 function initializeViewMode() {
-  const saved = localStorage.getItem(VIEW_MODE_KEY);
-  setViewMode(saved === "raw" ? "raw" : "rendered", { skipRender: true });
+  setViewMode("rendered", { skipRender: true });
 }
 
 function clampSidebarWidth(width) {
@@ -244,19 +239,18 @@ function renderCurrentDocument() {
     docRoot.hidden = true;
     rawRoot.hidden = false;
     rawCode.textContent = state.currentRaw;
-    docToc.hidden = true;
     return;
   }
   rawRoot.hidden = true;
   docRoot.hidden = false;
   docRoot.className = "";
   docRoot.innerHTML = state.currentHtml;
-  renderOutline();
 }
 
 function renderLoadingState(path) {
-  docMeta.textContent = path;
-  docToc.hidden = true;
+  if (docMeta) {
+    docMeta.textContent = path;
+  }
   if (state.viewMode === "raw") {
     docRoot.hidden = true;
     rawRoot.hidden = false;
@@ -270,8 +264,9 @@ function renderLoadingState(path) {
 }
 
 function renderLoadError(path) {
-  docMeta.textContent = path;
-  docToc.hidden = true;
+  if (docMeta) {
+    docMeta.textContent = path;
+  }
   if (state.viewMode === "raw") {
     docRoot.hidden = true;
     rawRoot.hidden = false;
@@ -286,7 +281,6 @@ function renderLoadError(path) {
 
 function setViewMode(mode, options = {}) {
   state.viewMode = mode;
-  localStorage.setItem(VIEW_MODE_KEY, mode);
   renderedMode.classList.toggle("active", mode === "rendered");
   rawMode.classList.toggle("active", mode === "raw");
   renderedMode.setAttribute("aria-pressed", String(mode === "rendered"));
@@ -345,10 +339,9 @@ async function loadDoc(path, options = {}) {
   state.currentHtml = payload.html;
   state.currentRaw = payload.raw;
   updateUrl(payload.path);
-  docMeta.textContent = payload.path;
-  docRoot.className = "";
-  docRoot.innerHTML = state.currentHtml;
-  rawCode.textContent = state.currentRaw;
+  if (docMeta) {
+    docMeta.textContent = payload.path;
+  }
   renderCurrentDocument();
   if (window.innerWidth <= 900) {
     document.body.classList.remove("nav-open");
@@ -359,42 +352,16 @@ async function loadDoc(path, options = {}) {
   }
 }
 
-function ensureHeadingIds() {
-  const headings = docRoot.querySelectorAll("h1, h2, h3, h4");
-  for (const heading of headings) {
-    if (heading.id) {
-      continue;
-    }
-    const id = heading.textContent
-      .trim()
-      .toLowerCase()
-      .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
-      .replace(/^-+|-+$/g, "");
-    heading.id = id || "section";
+function pathFromInAppLink(link) {
+  const href = link.getAttribute("href");
+  if (!href) {
+    return null;
   }
-  return headings;
-}
-
-function renderOutline() {
-  docTocRoot.innerHTML = "";
-  const headings = ensureHeadingIds();
-  const outlineHeadings = Array.from(headings).filter(
-    (heading) => heading.tagName !== "H1",
-  );
-  if (!outlineHeadings.length) {
-    docToc.hidden = true;
-    return;
+  const url = new URL(href, window.location.href);
+  if (url.origin !== window.location.origin || url.pathname !== "/") {
+    return null;
   }
-  for (const heading of outlineHeadings) {
-    const link = document.createElement("a");
-    link.href = `#${heading.id}`;
-    link.textContent = heading.textContent;
-    link.dataset.level = heading.tagName.slice(1);
-    docTocRoot.appendChild(link);
-  }
-  tocCount.textContent = String(outlineHeadings.length);
-  docToc.hidden = false;
-  docToc.open = false;
+  return url.searchParams.get("path");
 }
 
 const events = new EventSource("/events");
@@ -430,6 +397,19 @@ treeSearch.addEventListener("keydown", (event) => {
       renderTree(state.tree);
     }
   }
+});
+
+docRoot.addEventListener("click", (event) => {
+  const link = event.target.closest("a");
+  if (!(link instanceof HTMLAnchorElement)) {
+    return;
+  }
+  const path = pathFromInAppLink(link);
+  if (!path) {
+    return;
+  }
+  event.preventDefault();
+  loadDoc(path);
 });
 
 mobileNavToggle.addEventListener("click", () => {

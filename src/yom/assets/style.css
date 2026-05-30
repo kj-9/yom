@@ -367,6 +367,11 @@ body.resizing-sidebar {
   box-shadow: var(--shadow);
 }
 
+.settings-group {
+  display: grid;
+  gap: 6px;
+}
+
 .settings-label {
   color: var(--muted);
   font-size: 0.7rem;
@@ -604,11 +609,8 @@ main {
 .reader-shell {
   max-width: 980px;
   margin: 0 auto;
-  display: grid;
-  gap: 14px;
 }
 
-.doc-panel,
 .content-panel {
   background: var(--content-bg);
   border: 1px solid var(--line);
@@ -616,87 +618,14 @@ main {
   box-shadow: var(--shadow);
 }
 
-.doc-panel {
-  padding: 16px 18px;
-}
-
 .content-panel {
   padding: 34px 40px 42px;
 }
 
-.doc-file {
-  display: inline-flex;
-  max-width: 100%;
-  margin-top: 6px;
-  padding: 5px 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--panel) 82%, transparent);
-  color: var(--muted);
-  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
-  font-size: 0.82rem;
-  line-height: 1.35;
-  word-break: break-all;
-}
-
-.doc-toc {
-  margin-top: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--panel) 78%, transparent);
-}
-
-.doc-toc summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 40px;
-  padding: 9px 12px;
-  color: var(--accent-strong);
-  cursor: pointer;
-  font-weight: 800;
-  list-style: none;
-}
-
-.doc-toc summary::-webkit-details-marker {
-  display: none;
-}
-
-.doc-toc summary::before {
-  content: ">";
-  flex: 0 0 auto;
-  color: var(--muted);
-  transform: rotate(0deg);
-  transition: transform 140ms ease;
-}
-
-.doc-toc[open] summary::before {
-  transform: rotate(90deg);
-}
-
-.doc-toc summary span:first-child {
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.toc-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  height: 22px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-size: 0.76rem;
-}
-
 .view-mode {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
-  margin-top: 12px;
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -764,7 +693,6 @@ select,
 .doc-kicker,
 .status,
 .view-mode button,
-.doc-toc a,
 .node {
   font-family: var(--font-ui);
 }
@@ -859,6 +787,12 @@ blockquote {
 .raw-view {
   margin: 0;
   min-height: 320px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -892,42 +826,6 @@ blockquote {
 #docRoot p code,
 #docRoot li code {
   font-family: var(--font-ui);
-}
-
-.doc-toc nav {
-  display: grid;
-  gap: 2px;
-  max-height: 34vh;
-  overflow: auto;
-  padding: 0 8px 10px;
-  border-top: 1px solid var(--line);
-}
-
-.doc-toc a {
-  text-decoration: none;
-  color: var(--muted);
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: transparent;
-  border: 1px solid transparent;
-  font-size: 0.9rem;
-  line-height: 1.35;
-}
-
-.doc-toc a:hover {
-  color: var(--accent-strong);
-  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
-  background: var(--accent-wash);
-}
-
-.doc-toc a[data-level="3"] {
-  margin-left: 14px;
-  font-size: 0.86rem;
-}
-
-.doc-toc a[data-level="4"] {
-  margin-left: 28px;
-  font-size: 0.84rem;
 }
 
 .visually-hidden {
@@ -1000,10 +898,6 @@ blockquote {
 
   .content-panel {
     padding: 22px 18px 28px;
-  }
-
-  .doc-panel {
-    padding: 14px;
   }
 
   .sidebar-meta {
