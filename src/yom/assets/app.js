@@ -19,14 +19,21 @@ const statusBadge = document.getElementById("statusBadge");
 const treeSearch = document.getElementById("treeSearch");
 const mobileNavToggle = document.getElementById("mobileNavToggle");
 const themeToggle = document.getElementById("themeToggle");
+const paletteSelect = document.getElementById("paletteSelect");
 const docCount = document.getElementById("docCount");
 const visibleCount = document.getElementById("visibleCount");
 
 const THEME_KEY = "yom-theme";
+const PALETTE_KEY = "yom-palette";
 
 function applyTheme(theme) {
   document.body.dataset.theme = theme;
   themeToggle.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+}
+
+function applyPalette(palette) {
+  document.body.dataset.palette = palette;
+  paletteSelect.value = palette;
 }
 
 function initializeTheme() {
@@ -37,6 +44,11 @@ function initializeTheme() {
   }
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   applyTheme(prefersDark ? "dark" : "light");
+}
+
+function initializePalette() {
+  const saved = localStorage.getItem(PALETTE_KEY);
+  applyPalette(saved || "paper");
 }
 
 function setStatus(text, state = "ready") {
@@ -179,7 +191,7 @@ function renderTree(tree) {
   if (!list.childNodes.length) {
     const empty = document.createElement("div");
     empty.className = "tree-empty";
-    empty.textContent = "一致する Markdown がありません。";
+    empty.textContent = "一致する項目がありません。";
     treeRoot.appendChild(empty);
   } else {
     treeRoot.appendChild(list);
@@ -226,7 +238,7 @@ async function loadDoc(path, options = {}) {
     docJumpList.hidden = true;
     outlineSection.hidden = true;
     docRoot.className = "empty";
-    docRoot.textContent = "ファイルを読み込めませんでした。";
+    docRoot.textContent = "項目を読み込めませんでした。";
     return;
   }
   const payload = await response.json();
@@ -234,10 +246,13 @@ async function loadDoc(path, options = {}) {
   updateUrl(payload.path);
   docMeta.textContent = payload.path;
   docTitle.textContent =
-    payload.path.split("/").pop().replace(/\.md$/i, "") || payload.path;
+    payload.path
+      .split("/")
+      .pop()
+      .replace(/\.[^./]+$/, "") || payload.path;
   docOpen.hidden = false;
   docOpen.href = `/?path=${encodeURIComponent(payload.path)}`;
-  docOpen.textContent = "この文書へのリンク";
+  docOpen.textContent = "この項目へのリンク";
   docRoot.className = "";
   docRoot.innerHTML = payload.html;
   renderOutline();
@@ -334,7 +349,7 @@ mobileNavToggle.addEventListener("click", () => {
   const nextOpen = !document.body.classList.contains("nav-open");
   document.body.classList.toggle("nav-open", nextOpen);
   mobileNavToggle.setAttribute("aria-expanded", String(nextOpen));
-  mobileNavToggle.textContent = nextOpen ? "閉じる" : "ドキュメント一覧";
+  mobileNavToggle.textContent = nextOpen ? "閉じる" : "コンテンツ一覧";
 });
 
 themeToggle.addEventListener("click", () => {
@@ -343,6 +358,12 @@ themeToggle.addEventListener("click", () => {
   applyTheme(nextTheme);
 });
 
+paletteSelect.addEventListener("change", () => {
+  localStorage.setItem(PALETTE_KEY, paletteSelect.value);
+  applyPalette(paletteSelect.value);
+});
+
 initializeTheme();
+initializePalette();
 setStatus("監視中", "ready");
 refreshTree(currentPathFromUrl());
