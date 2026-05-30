@@ -1,5 +1,6 @@
 :root {
   color-scheme: light;
+  --sidebar-width: 304px;
   --font-ui:
     Inter, "Avenir Next", "Hiragino Sans", "Yu Gothic", "Noto Sans JP",
     sans-serif;
@@ -207,7 +208,10 @@ a:focus-visible {
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(260px, 304px) minmax(0, 1fr);
+  grid-template-columns: clamp(220px, var(--sidebar-width), 560px) 6px minmax(
+      0,
+      1fr
+    );
   min-height: 100vh;
 }
 
@@ -215,11 +219,47 @@ aside {
   position: sticky;
   top: 0;
   height: 100vh;
-  border-right: 1px solid var(--border);
   background: var(--panel);
   backdrop-filter: blur(14px);
   padding: 14px 12px 18px;
   overflow: auto;
+}
+
+.sidebar-resizer {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 100vh;
+  cursor: col-resize;
+  background:
+    linear-gradient(90deg, var(--border), transparent 1px),
+    color-mix(in srgb, var(--panel) 72%, transparent);
+}
+
+.sidebar-resizer::after {
+  content: "";
+  display: block;
+  width: 2px;
+  height: 48px;
+  margin: calc(50vh - 24px) auto 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
+  opacity: 0;
+  transition:
+    background 140ms ease,
+    opacity 140ms ease;
+}
+
+.sidebar-resizer:hover::after,
+.sidebar-resizer:focus-visible::after,
+body.resizing-sidebar .sidebar-resizer::after {
+  opacity: 1;
+  background: var(--accent);
+}
+
+body.resizing-sidebar {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .sidebar-header {
@@ -357,8 +397,39 @@ aside {
   box-shadow: 0 0 0 4px var(--accent-wash);
 }
 
-.tree-label {
+.tree-toolbar {
+  display: grid;
+  gap: 5px;
   margin: 10px 0 5px;
+}
+
+.tree-label {
+  min-width: 0;
+}
+
+.tree-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tree-actions button {
+  flex: 1 1 0;
+  min-height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--muted);
+  padding: 3px 6px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  line-height: 1.15;
+}
+
+.tree-actions button:hover {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  color: var(--accent-strong);
+  background: var(--accent-wash);
 }
 
 .tree,
@@ -805,6 +876,10 @@ blockquote {
     max-height: 72vh;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+    display: none;
+  }
+
+  .sidebar-resizer {
     display: none;
   }
 

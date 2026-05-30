@@ -46,9 +46,26 @@
           <span class="search-label">Filter</span>
           <input id="treeSearch" type="search" placeholder="Filter items" />
         </label>
-        <div class="tree-label">Contents</div>
+        <div class="tree-toolbar">
+          <div class="tree-label">Contents</div>
+          <div class="tree-actions">
+            <button id="collapseTree" type="button">Collapse</button>
+            <button id="expandTree" type="button">Expand</button>
+          </div>
+        </div>
         <div id="treeRoot"></div>
       </aside>
+      <div
+        class="sidebar-resizer"
+        id="sidebarResizer"
+        role="separator"
+        aria-label="Resize sidebar"
+        aria-orientation="vertical"
+        aria-valuemin="220"
+        aria-valuemax="560"
+        aria-valuenow="304"
+        tabindex="0"
+      ></div>
       <main>
         <div class="reader-shell">
           <div class="doc-panel">
