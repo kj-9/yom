@@ -5,6 +5,7 @@ import json
 import mimetypes
 import posixpath
 import queue
+import subprocess
 import threading
 import time
 import webbrowser
@@ -72,7 +73,8 @@ class SiteIndex:
 
     def refresh(self) -> None:
         with self._lock:
-            self.tree = self._build_tree(self.root, base=self.root)
+            ignored_paths = gitignored_paths(self.root)
+            self.tree = self._build_tree(self.root, base=self.root, ignored_paths=ignored_paths)
             self.first_path = self._find_first(self.tree)
             self.version += 1
 
@@ -105,14 +107,16 @@ class SiteIndex:
             raise FileNotFoundError(raw_path)
         return candidate
 
-    def _build_tree(self, current: Path, base: Path) -> Node:
+    def _build_tree(self, current: Path, base: Path, ignored_paths: set[str]) -> Node:
         children: list[Node] = []
         for entry in sorted(current.iterdir(), key=lambda p: (p.is_file(), p.name.lower())):
             if entry.name.startswith("."):
                 continue
             rel = entry.relative_to(base).as_posix()
+            if rel in ignored_paths:
+                continue
             if entry.is_dir():
-                subtree = self._build_tree(entry, base=base)
+                subtree = self._build_tree(entry, base=base, ignored_paths=ignored_paths)
                 if subtree.children:
                     children.append(subtree)
             elif entry.suffix.lower() == ".md":
@@ -184,8 +188,11 @@ class PollingWatcher(threading.Thread):
 
     def _scan(self) -> dict[str, tuple[int, int]]:
         snapshot: dict[str, tuple[int, int]] = {}
+        ignored_paths = gitignored_paths(self.root)
         for path in self.root.rglob("*.md"):
             if any(part.startswith(".") for part in path.relative_to(self.root).parts):
+                continue
+            if path.relative_to(self.root).as_posix() in ignored_paths:
                 continue
             try:
                 stat = path.stat()
@@ -217,8 +224,34 @@ class WatchdogEventHandler(FileSystemEventHandler):  # type: ignore[misc]
             return
         if any(part.startswith(".") for part in relative_parts):
             return
+        if path.resolve().relative_to(self.root).as_posix() in gitignored_paths(self.root):
+            return
         self.index.refresh()
         self.broker.publish({"version": self.index.version, "timestamp": time.time()})
+
+
+def gitignored_paths(root: Path) -> set[str]:
+    candidates = [
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*")
+        if not any(part.startswith(".") for part in path.relative_to(root).parts)
+    ]
+    if not candidates:
+        return set()
+    try:
+        result = subprocess.run(
+            ["git", "check-ignore", "--stdin"],
+            input="\n".join(candidates),
+            capture_output=True,
+            text=True,
+            cwd=root,
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return set()
+    if result.returncode not in {0, 1}:
+        return set()
+    return {line.strip().rstrip("/") for line in result.stdout.splitlines() if line.strip()}
 
 
 def create_watcher(

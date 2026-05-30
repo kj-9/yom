@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 from yom.server import (
@@ -76,6 +77,49 @@ def test_resolve_rejects_paths_outside_root(tmp_path: Path) -> None:
 def test_polling_watcher_scan_ignores_hidden_paths(tmp_path: Path) -> None:
     write(tmp_path / "visible.md", "# Visible")
     write(tmp_path / ".hidden" / "secret.md", "# Secret")
+
+    watcher = PollingWatcher(
+        root=tmp_path,
+        index=SiteIndex(tmp_path),
+        broker=WatchBroker(),
+        interval=0.1,
+    )
+
+    snapshot = watcher._scan()
+
+    assert list(snapshot) == ["visible.md"]
+
+
+def test_site_index_ignores_gitignored_markdown_by_default(tmp_path: Path) -> None:
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    write(tmp_path / ".gitignore", "ignored/\nignored.md\n")
+    write(tmp_path / "visible.md", "# Visible")
+    write(tmp_path / "ignored.md", "# Ignored")
+    write(tmp_path / "ignored" / "nested.md", "# Nested")
+
+    snapshot = SiteIndex(tmp_path).snapshot()
+
+    assert snapshot["first_path"] == "visible.md"
+    assert snapshot["tree"] == {
+        "name": tmp_path.name,
+        "path": "",
+        "type": "directory",
+        "children": [
+            {
+                "name": "visible.md",
+                "path": "visible.md",
+                "type": "file",
+                "children": [],
+            }
+        ],
+    }
+
+
+def test_polling_watcher_scan_ignores_gitignored_paths(tmp_path: Path) -> None:
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    write(tmp_path / ".gitignore", "ignored.md\n")
+    write(tmp_path / "visible.md", "# Visible")
+    write(tmp_path / "ignored.md", "# Ignored")
 
     watcher = PollingWatcher(
         root=tmp_path,
