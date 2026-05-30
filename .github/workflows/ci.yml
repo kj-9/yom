@@ -2,31 +2,27 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
-
-      - name: Sync dependencies
-        run: uv sync
-
-      - name: Run ruff
-        run: uv run ruff check .
-
-      - name: Run tests
-        run: uv run pytest
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.11"
+            run-ci-check: true
+          - python-version: "3.12"
+            run-ci-check: false
+          - python-version: "3.13"
+            run-ci-check: false
+    uses: ./.github/workflows/python-checks.yml
+    with:
+      python-version: ${{ matrix.python-version }}
+      run-ci-check: ${{ matrix.run-ci-check }}
