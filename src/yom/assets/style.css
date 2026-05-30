@@ -413,17 +413,22 @@ body.resizing-sidebar {
   align-items: center;
   min-height: 32px;
   padding: 6px 10px;
-  color: var(--muted);
+  color: color-mix(in srgb, var(--text) 78%, var(--muted));
   font-size: 0.78rem;
+  font-weight: 500;
   white-space: nowrap;
 }
 
 .dot {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
   border-radius: 999px;
   background: var(--success);
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--success) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 72%, white);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--success) 18%, transparent),
+    0 0 12px color-mix(in srgb, var(--success) 28%, transparent);
 }
 
 .search {
@@ -846,17 +851,26 @@ blockquote {
 
 .status[data-state="reconnecting"] .dot {
   background: var(--warning);
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--warning) 18%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 72%, white);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--warning) 18%, transparent),
+    0 0 12px color-mix(in srgb, var(--warning) 28%, transparent);
 }
 
 .status[data-state="updated"] .dot {
   background: var(--success);
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--success) 18%, transparent);
+  border-color: color-mix(in srgb, var(--success) 72%, white);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--success) 18%, transparent),
+    0 0 12px color-mix(in srgb, var(--success) 28%, transparent);
 }
 
 .status[data-state="error"] .dot {
   background: var(--danger);
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--danger) 18%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 72%, white);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--danger) 18%, transparent),
+    0 0 12px color-mix(in srgb, var(--danger) 28%, transparent);
 }
 
 @media (max-width: 900px) {
