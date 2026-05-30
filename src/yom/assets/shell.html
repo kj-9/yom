@@ -42,16 +42,6 @@
             </div>
           </div>
         </div>
-        <div class="sidebar-summary" id="sidebarSummary">
-          <div class="summary-card">
-            <span class="summary-label">Items</span>
-            <strong id="docCount">0</strong>
-          </div>
-          <div class="summary-card">
-            <span class="summary-label">Shown</span>
-            <strong id="visibleCount">0</strong>
-          </div>
-        </div>
         <label class="search">
           <span class="search-label">Filter</span>
           <input id="treeSearch" type="search" placeholder="Filter items" />
@@ -60,27 +50,24 @@
         <div id="treeRoot"></div>
       </aside>
       <main>
-        <article>
-          <div class="doc-header">
-            <div>
-              <div class="meta" id="docMeta"></div>
-              <h1 class="doc-title" id="docTitle">Select a document</h1>
-              <div class="doc-jump-list" id="docJumpList" hidden></div>
-            </div>
-            <div class="doc-actions">
-              <a id="docOpen" class="doc-link" href="#" hidden
-                >Open current path</a
-              >
-            </div>
+        <div class="reader-shell">
+          <div class="doc-panel">
+            <div class="doc-kicker">Current file</div>
+            <div class="doc-file" id="docMeta"></div>
+            <details class="doc-toc" id="docToc" hidden>
+              <summary>
+                <span>Table of contents</span>
+                <span class="toc-count" id="tocCount"></span>
+              </summary>
+              <nav id="docTocRoot"></nav>
+            </details>
           </div>
-          <div id="docRoot" class="empty">
-            Select an item from the list on the left.
-          </div>
-          <section class="outline" id="outlineSection" hidden>
-            <div class="outline-label">Sections</div>
-            <nav id="outlineRoot"></nav>
-          </section>
-        </article>
+          <article class="content-panel">
+            <div id="docRoot" class="empty">
+              Select an item from the list on the left.
+            </div>
+          </article>
+        </div>
       </main>
     </div>
     <script>

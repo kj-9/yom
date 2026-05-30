@@ -9,19 +9,15 @@ const rootLabel = document.getElementById("rootLabel");
 const treeRoot = document.getElementById("treeRoot");
 const docRoot = document.getElementById("docRoot");
 const docMeta = document.getElementById("docMeta");
-const docTitle = document.getElementById("docTitle");
-const docOpen = document.getElementById("docOpen");
-const docJumpList = document.getElementById("docJumpList");
-const outlineRoot = document.getElementById("outlineRoot");
-const outlineSection = document.getElementById("outlineSection");
+const docToc = document.getElementById("docToc");
+const docTocRoot = document.getElementById("docTocRoot");
+const tocCount = document.getElementById("tocCount");
 const statusText = document.getElementById("statusText");
 const statusBadge = document.getElementById("statusBadge");
 const treeSearch = document.getElementById("treeSearch");
 const mobileNavToggle = document.getElementById("mobileNavToggle");
 const themeToggle = document.getElementById("themeToggle");
 const paletteSelect = document.getElementById("paletteSelect");
-const docCount = document.getElementById("docCount");
-const visibleCount = document.getElementById("visibleCount");
 
 const THEME_KEY = "yom-theme";
 const PALETTE_KEY = "yom-palette";
@@ -121,13 +117,6 @@ function matchesSearch(node) {
   return false;
 }
 
-function countFiles(node) {
-  if (node.type === "file") {
-    return 1;
-  }
-  return node.children.reduce((total, child) => total + countFiles(child), 0);
-}
-
 function renderTreeNode(node) {
   if (!matchesSearch(node)) {
     return null;
@@ -178,16 +167,12 @@ function renderTree(tree) {
   treeRoot.innerHTML = "";
   const list = document.createElement("ul");
   list.className = "tree";
-  let visibleFiles = 0;
   for (const child of tree.children) {
     const childNode = renderTreeNode(child);
     if (childNode) {
       list.appendChild(childNode);
-      visibleFiles += countFiles(child);
     }
   }
-  docCount.textContent = String(countFiles(tree));
-  visibleCount.textContent = String(visibleFiles);
   if (!list.childNodes.length) {
     const empty = document.createElement("div");
     empty.className = "tree-empty";
@@ -223,7 +208,10 @@ async function refreshTree(preferredPath = null) {
 }
 
 async function loadDoc(path, options = {}) {
-  docTitle.textContent = "Loading...";
+  docMeta.textContent = path;
+  docToc.hidden = true;
+  docRoot.className = "empty";
+  docRoot.textContent = "Loading...";
   const response = await fetch(`/api/doc?path=${encodeURIComponent(path)}`);
   if (!response.ok) {
     if (!options.fallbackPathTried && state.tree) {
@@ -233,10 +221,7 @@ async function loadDoc(path, options = {}) {
       }
     }
     docMeta.textContent = path;
-    docTitle.textContent = "Load failed";
-    docOpen.hidden = true;
-    docJumpList.hidden = true;
-    outlineSection.hidden = true;
+    docToc.hidden = true;
     docRoot.className = "empty";
     docRoot.textContent = "Could not load the item.";
     return;
@@ -245,14 +230,6 @@ async function loadDoc(path, options = {}) {
   state.currentPath = payload.path;
   updateUrl(payload.path);
   docMeta.textContent = payload.path;
-  docTitle.textContent =
-    payload.path
-      .split("/")
-      .pop()
-      .replace(/\.[^./]+$/, "") || payload.path;
-  docOpen.hidden = false;
-  docOpen.href = `/?path=${encodeURIComponent(payload.path)}`;
-  docOpen.textContent = "Link to this item";
   docRoot.className = "";
   docRoot.innerHTML = payload.html;
   renderOutline();
@@ -282,15 +259,13 @@ function ensureHeadingIds() {
 }
 
 function renderOutline() {
-  outlineRoot.innerHTML = "";
-  docJumpList.innerHTML = "";
+  docTocRoot.innerHTML = "";
   const headings = ensureHeadingIds();
   const outlineHeadings = Array.from(headings).filter(
     (heading) => heading.tagName !== "H1",
   );
   if (!outlineHeadings.length) {
-    outlineSection.hidden = true;
-    docJumpList.hidden = true;
+    docToc.hidden = true;
     return;
   }
   for (const heading of outlineHeadings) {
@@ -298,16 +273,11 @@ function renderOutline() {
     link.href = `#${heading.id}`;
     link.textContent = heading.textContent;
     link.dataset.level = heading.tagName.slice(1);
-    outlineRoot.appendChild(link);
+    docTocRoot.appendChild(link);
   }
-  for (const heading of outlineHeadings.slice(0, 4)) {
-    const chip = document.createElement("a");
-    chip.href = `#${heading.id}`;
-    chip.textContent = heading.textContent;
-    docJumpList.appendChild(chip);
-  }
-  docJumpList.hidden = !docJumpList.childNodes.length;
-  outlineSection.hidden = false;
+  tocCount.textContent = String(outlineHeadings.length);
+  docToc.hidden = false;
+  docToc.open = false;
 }
 
 const events = new EventSource("/events");
