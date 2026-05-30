@@ -4,12 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yom"
-version = "0.1.0"
+version = "0.1.0a0"
 description = "Markdown tree web server with live updates"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "Markdown>=3.6",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3.0",
 ]
 
 [project.scripts]
@@ -20,3 +25,6 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

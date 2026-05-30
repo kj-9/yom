@@ -19,6 +19,13 @@ cd ~/work/repos/yom
 uv sync
 ```
 
+開発時の最低限の確認:
+
+```bash
+cd ~/work/repos/yom
+./scripts/check.sh
+```
+
 ## 使い方
 
 リポジトリ直下を表示する場合:
