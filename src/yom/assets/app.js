@@ -11,11 +11,38 @@ const docRoot = document.getElementById("docRoot");
 const docMeta = document.getElementById("docMeta");
 const docTitle = document.getElementById("docTitle");
 const docOpen = document.getElementById("docOpen");
+const docJumpList = document.getElementById("docJumpList");
 const outlineRoot = document.getElementById("outlineRoot");
 const outlineSection = document.getElementById("outlineSection");
 const statusText = document.getElementById("statusText");
+const statusBadge = document.getElementById("statusBadge");
 const treeSearch = document.getElementById("treeSearch");
 const mobileNavToggle = document.getElementById("mobileNavToggle");
+const themeToggle = document.getElementById("themeToggle");
+const docCount = document.getElementById("docCount");
+const visibleCount = document.getElementById("visibleCount");
+
+const THEME_KEY = "yom-theme";
+
+function applyTheme(theme) {
+  document.body.dataset.theme = theme;
+  themeToggle.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+}
+
+function initializeTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved === "light" || saved === "dark") {
+    applyTheme(saved);
+    return;
+  }
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(prefersDark ? "dark" : "light");
+}
+
+function setStatus(text, state = "ready") {
+  statusText.textContent = text;
+  statusBadge.dataset.state = state;
+}
 
 function currentPathFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -82,6 +109,13 @@ function matchesSearch(node) {
   return false;
 }
 
+function countFiles(node) {
+  if (node.type === "file") {
+    return 1;
+  }
+  return node.children.reduce((total, child) => total + countFiles(child), 0);
+}
+
 function renderTreeNode(node) {
   if (!matchesSearch(node)) {
     return null;
@@ -132,12 +166,16 @@ function renderTree(tree) {
   treeRoot.innerHTML = "";
   const list = document.createElement("ul");
   list.className = "tree";
+  let visibleFiles = 0;
   for (const child of tree.children) {
     const childNode = renderTreeNode(child);
     if (childNode) {
       list.appendChild(childNode);
+      visibleFiles += countFiles(child);
     }
   }
+  docCount.textContent = String(countFiles(tree));
+  visibleCount.textContent = String(visibleFiles);
   if (!list.childNodes.length) {
     const empty = document.createElement("div");
     empty.className = "tree-empty";
@@ -173,6 +211,7 @@ async function refreshTree(preferredPath = null) {
 }
 
 async function loadDoc(path, options = {}) {
+  docTitle.textContent = "読み込み中...";
   const response = await fetch(`/api/doc?path=${encodeURIComponent(path)}`);
   if (!response.ok) {
     if (!options.fallbackPathTried && state.tree) {
@@ -184,6 +223,7 @@ async function loadDoc(path, options = {}) {
     docMeta.textContent = path;
     docTitle.textContent = "読み込み失敗";
     docOpen.hidden = true;
+    docJumpList.hidden = true;
     outlineSection.hidden = true;
     docRoot.className = "empty";
     docRoot.textContent = "ファイルを読み込めませんでした。";
@@ -197,7 +237,7 @@ async function loadDoc(path, options = {}) {
     payload.path.split("/").pop().replace(/\.md$/i, "") || payload.path;
   docOpen.hidden = false;
   docOpen.href = `/?path=${encodeURIComponent(payload.path)}`;
-  docOpen.textContent = payload.path;
+  docOpen.textContent = "この文書へのリンク";
   docRoot.className = "";
   docRoot.innerHTML = payload.html;
   renderOutline();
@@ -228,12 +268,14 @@ function ensureHeadingIds() {
 
 function renderOutline() {
   outlineRoot.innerHTML = "";
+  docJumpList.innerHTML = "";
   const headings = ensureHeadingIds();
   const outlineHeadings = Array.from(headings).filter(
     (heading) => heading.tagName !== "H1",
   );
   if (!outlineHeadings.length) {
     outlineSection.hidden = true;
+    docJumpList.hidden = true;
     return;
   }
   for (const heading of outlineHeadings) {
@@ -243,17 +285,27 @@ function renderOutline() {
     link.dataset.level = heading.tagName.slice(1);
     outlineRoot.appendChild(link);
   }
+  for (const heading of outlineHeadings.slice(0, 4)) {
+    const chip = document.createElement("a");
+    chip.href = `#${heading.id}`;
+    chip.textContent = heading.textContent;
+    docJumpList.appendChild(chip);
+  }
+  docJumpList.hidden = !docJumpList.childNodes.length;
   outlineSection.hidden = false;
 }
 
 const events = new EventSource("/events");
 events.onmessage = async (event) => {
   const payload = JSON.parse(event.data);
-  statusText.textContent = `監視中 / 更新 ${new Date(payload.timestamp * 1000).toLocaleTimeString()}`;
+  setStatus(
+    `更新 ${new Date(payload.timestamp * 1000).toLocaleTimeString()}`,
+    "updated",
+  );
   await refreshTree(state.currentPath);
 };
 events.onerror = () => {
-  statusText.textContent = "接続を再試行中";
+  setStatus("接続を再試行中", "reconnecting");
 };
 
 window.addEventListener("popstate", () => {
@@ -269,10 +321,28 @@ treeSearch.addEventListener("input", () => {
   }
 });
 
+treeSearch.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    treeSearch.value = "";
+    if (state.tree) {
+      renderTree(state.tree);
+    }
+  }
+});
+
 mobileNavToggle.addEventListener("click", () => {
   const nextOpen = !document.body.classList.contains("nav-open");
   document.body.classList.toggle("nav-open", nextOpen);
   mobileNavToggle.setAttribute("aria-expanded", String(nextOpen));
+  mobileNavToggle.textContent = nextOpen ? "閉じる" : "ドキュメント一覧";
 });
 
+themeToggle.addEventListener("click", () => {
+  const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, nextTheme);
+  applyTheme(nextTheme);
+});
+
+initializeTheme();
+setStatus("監視中", "ready");
 refreshTree(currentPathFromUrl());

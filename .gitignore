@@ -9,5 +9,6 @@ node_modules/
 .npm-cache/
 .pnpm-store/
 .cache/
+.playwright-cli/
 
 node_modules/

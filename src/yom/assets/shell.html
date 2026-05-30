@@ -25,8 +25,23 @@
             <h1 class="brand">yom</h1>
             <p class="sub" id="rootLabel"></p>
           </div>
-          <div class="status">
-            <span class="dot"></span><span id="statusText">監視中</span>
+          <div class="sidebar-tools">
+            <button class="theme-toggle" id="themeToggle" type="button">
+              Dark mode
+            </button>
+            <div class="status" id="statusBadge" data-state="ready">
+              <span class="dot"></span><span id="statusText">監視中</span>
+            </div>
+          </div>
+        </div>
+        <div class="sidebar-summary" id="sidebarSummary">
+          <div class="summary-card">
+            <span class="summary-label">Docs</span>
+            <strong id="docCount">0</strong>
+          </div>
+          <div class="summary-card">
+            <span class="summary-label">Visible</span>
+            <strong id="visibleCount">0</strong>
           </div>
         </div>
         <label class="search">
@@ -46,6 +61,7 @@
             <div>
               <div class="meta" id="docMeta"></div>
               <h1 class="doc-title" id="docTitle">ドキュメントを選択</h1>
+              <div class="doc-jump-list" id="docJumpList" hidden></div>
             </div>
             <div class="doc-actions">
               <a id="docOpen" class="doc-link" href="#" hidden>現在のパス</a>
