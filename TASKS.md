@@ -2,9 +2,9 @@
 
 ## 直近
 
-- [ ] `README.md` を `~/work/repos/yom` 前提の手順に更新する
-- [ ] `.gitignore` を追加して `.venv/` `__pycache__/` などを除外する
-- [ ] 初回コミットを作成する
+- [x] `README.md` を `~/work/repos/yom` 前提の手順に更新する
+- [x] `.gitignore` を追加して `.venv/` `__pycache__/` などを除外する
+- [x] 初回コミットを作成する
 - [ ] 必要なら GitHub リモートを追加する
 
 ## 品質
