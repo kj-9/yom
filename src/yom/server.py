@@ -9,9 +9,9 @@ import threading
 import time
 import webbrowser
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from html.parser import HTMLParser
 from importlib.resources import files
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -117,7 +117,12 @@ class SiteIndex:
                     children.append(subtree)
             elif entry.suffix.lower() == ".md":
                 children.append(Node(name=entry.name, path=rel, type="file", children=[]))
-        return Node(name=current.name, path=current.relative_to(base).as_posix() if current != base else "", type="directory", children=children)
+        return Node(
+            name=current.name,
+            path=current.relative_to(base).as_posix() if current != base else "",
+            type="directory",
+            children=children,
+        )
 
     def _find_first(self, node: Node) -> str | None:
         for child in node.children:
@@ -216,7 +221,9 @@ class WatchdogEventHandler(FileSystemEventHandler):  # type: ignore[misc]
         self.broker.publish({"version": self.index.version, "timestamp": time.time()})
 
 
-def create_watcher(root: Path, index: SiteIndex, broker: WatchBroker, interval: float, mode: str) -> tuple[object | None, str]:
+def create_watcher(
+    root: Path, index: SiteIndex, broker: WatchBroker, interval: float, mode: str
+) -> tuple[object | None, str]:
     if mode not in {"auto", "poll", "watchdog", "off"}:
         raise ValueError(f"unsupported watch mode: {mode}")
     if mode == "off":

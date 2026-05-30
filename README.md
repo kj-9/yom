@@ -27,6 +27,14 @@ cd ~/work/repos/yom
 ./scripts/check.sh
 ```
 
+個別に整形と lint を回す場合:
+
+```bash
+cd ~/work/repos/yom
+uv run ruff check .
+uv run ruff format --check .
+```
+
 UI テンプレートは [src/yom/assets](/Users/kh03/work/repos/yom/src/yom/assets) に分離してあり、見た目やクライアント側挙動を調整したいときはここを編集します。
 
 ## 使い方

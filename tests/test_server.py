@@ -8,9 +8,9 @@ from yom.server import (
     SiteIndex,
     WatchBroker,
     create_watcher,
-    rewrite_relative_links,
     render_html_shell,
     render_markdown,
+    rewrite_relative_links,
 )
 
 
@@ -127,7 +127,11 @@ def test_rewrite_relative_links_leaves_invalid_or_external_links(tmp_path: Path)
     index = SiteIndex(tmp_path)
 
     rewritten = rewrite_relative_links(
-        '<p><a href="https://example.com">ext</a> <a href="../missing.md">missing</a> <img src="../secret.png"></p>',
+        (
+            '<p><a href="https://example.com">ext</a> '
+            '<a href="../missing.md">missing</a> '
+            '<img src="../secret.png"></p>'
+        ),
         source=tmp_path / "docs" / "page.md",
         index=index,
     )

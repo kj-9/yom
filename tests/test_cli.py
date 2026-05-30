@@ -35,7 +35,14 @@ def test_parser_supports_markdown_extension_options() -> None:
     parser = build_parser()
 
     args = parser.parse_args(
-        ["docs", "--markdown-extension", "admonition", "--markdown-extension", "nl2br", "--no-default-extensions"]
+        [
+            "docs",
+            "--markdown-extension",
+            "admonition",
+            "--markdown-extension",
+            "nl2br",
+            "--no-default-extensions",
+        ]
     )
 
     assert args.markdown_extension == ["admonition", "nl2br"]
@@ -66,9 +73,7 @@ def test_main_shows_helpful_message_when_port_is_in_use(
     assert excinfo.value.code == 2
 
 
-def test_main_opens_browser_by_default(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_main_opens_browser_by_default(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
     def fake_serve(**kwargs: object) -> None:
@@ -82,9 +87,7 @@ def test_main_opens_browser_by_default(
     assert captured["open_browser"] is True
 
 
-def test_main_can_disable_browser_open(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_main_can_disable_browser_open(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
     def fake_serve(**kwargs: object) -> None:
@@ -98,9 +101,7 @@ def test_main_can_disable_browser_open(
     assert captured["open_browser"] is False
 
 
-def test_main_passes_markdown_extensions(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_main_passes_markdown_extensions(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
     def fake_serve(**kwargs: object) -> None:
@@ -117,9 +118,7 @@ def test_main_passes_markdown_extensions(
     assert captured["markdown_extensions"] == ["admonition"]
 
 
-def test_main_passes_watch_mode(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_main_passes_watch_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
     def fake_serve(**kwargs: object) -> None:
