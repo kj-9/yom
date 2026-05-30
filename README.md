@@ -1,6 +1,6 @@
 # yom
 
-`yom` is a local web viewer for Markdown files. It scans a directory tree, renders `.md` files, and serves them through a sidebar-based browser UI with live reload.
+`yom` is a local web viewer for Markdown trees. It scans a directory, renders `.md` files, and serves them in a sidebar-based browser UI with live reload.
 
 ## Features
 
@@ -11,62 +11,40 @@
 - Watches for file changes and updates the browser automatically
 - Starts a local server with a single command
 
-## Getting Started
+## Installation
 
-This repository is assumed to be cloned at `~/work/repos/yom` and to have `uv` available.
-
-```bash
-cd ~/work/repos/yom
-uv sync
-```
-
-Minimal verification during development:
+Install from PyPI:
 
 ```bash
-cd ~/work/repos/yom
-./scripts/check.sh
+pip install yom
 ```
 
-To run formatting and lint checks separately:
+If you use `uv`, you can also run it without a manual virtual environment step:
 
 ```bash
-cd ~/work/repos/yom
-uv run ruff check .
-uv run ruff format --check .
-XDG_CACHE_HOME="$PWD/.cache" pnpx prettier@3 --check "src/yom/assets/*.{html,css,js}"
+uv tool install yom
 ```
 
-To format frontend assets:
+## Quick Start
+
+Serve the current directory:
 
 ```bash
-cd ~/work/repos/yom
-XDG_CACHE_HOME="$PWD/.cache" pnpx prettier@3 --write "src/yom/assets/*.{html,css,js}"
+yom .
 ```
 
-The UI templates live in [src/yom/assets](src/yom/assets). Edit that directory when you want to adjust appearance or client-side behavior.
+Serve a specific directory:
+
+```bash
+yom /path/to/docs
+```
+
+By default, `yom` starts a local server on `http://127.0.0.1:8000` and opens it in your browser.
 
 ## Usage
 
-To browse the repository root:
-
 ```bash
-cd ~/work/repos/yom
-uv run yom .
-```
-
-To browse the sample `work/` directory:
-
-```bash
-cd ~/work/repos/yom
-uv run yom work
-```
-
-By default, `yom` opens `http://127.0.0.1:8000` in your browser.
-
-## Options
-
-```bash
-uv run yom ~/work/repos/yom/work --host 127.0.0.1 --port 8000 --interval 0.7 --title "yom docs"
+yom /path/to/docs --host 127.0.0.1 --port 8000 --interval 0.7 --title "My docs"
 ```
 
 Options available through `yom --help`:
@@ -82,61 +60,52 @@ Options available through `yom --help`:
 - `--markdown-extension NAME`: enable an additional Markdown extension
 - `--no-default-extensions`: disable the built-in Markdown extensions
 
-To switch Markdown extensions:
+Enable an extra Markdown extension:
 
 ```bash
-cd ~/work/repos/yom
-uv run yom work --markdown-extension admonition
+yom /path/to/docs --markdown-extension admonition
 ```
 
-To try the app with the minimal Markdown configuration:
+Run with the minimal Markdown configuration:
 
 ```bash
-cd ~/work/repos/yom
-uv run yom work --no-default-extensions
+yom /path/to/docs --no-default-extensions
 ```
 
-Relative link behavior:
+## Relative Paths
 
 - Markdown links such as `./other.md` and `../guide.md` are converted into in-app navigation
 - Image paths such as `./image.png` are served as local assets
-- References that point outside the directory tree are left unresolved and cannot be used to read external files
+- References that point outside the scanned directory tree are left unresolved
 
-## Watch Verification
+## Watch Behavior
 
-Quickest way to confirm file watching locally:
+To disable file watching:
 
 ```bash
-cd ~/work/repos/yom
-uv run yom work
+yom /path/to/docs --no-watch
 ```
 
-1. Open `http://127.0.0.1:8000` in the browser
-2. Open one Markdown file under `work/`
-3. Modify that file from another terminal
-4. Confirm that the content and watch status update within a few seconds
-
-To run without watching:
+To force the `watchdog` backend:
 
 ```bash
-cd ~/work/repos/yom
-uv run yom work --no-watch
-```
-
-To force `watchdog`:
-
-```bash
-cd ~/work/repos/yom
-uv run yom work --watch-mode watchdog
+yom /path/to/docs --watch-mode watchdog
 ```
 
 To disable automatic browser opening:
 
 ```bash
-cd ~/work/repos/yom
-uv run yom work --no-open
+yom /path/to/docs --no-open
 ```
 
-## Japanese README
+## Development
+
+For local development with the repository checked out:
+
+```bash
+uv sync --group dev
+make test
+make ci-check
+```
 
 The Japanese translation is available at [README.ja.md](README.ja.md).
