@@ -27,6 +27,8 @@ cd ~/work/repos/yom
 ./scripts/check.sh
 ```
 
+UI テンプレートは [src/yom/assets](/Users/kh03/work/repos/yom/src/yom/assets) に分離してあり、見た目やクライアント側挙動を調整したいときはここを編集します。
+
 ## 使い方
 
 リポジトリ直下を表示する場合:
