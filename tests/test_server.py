@@ -83,3 +83,6 @@ def test_polling_watcher_scan_ignores_hidden_paths(tmp_path: Path) -> None:
 def test_make_handler_injects_custom_title(tmp_path: Path) -> None:
     assert "<title>docs portal</title>" in render_html_shell("docs portal")
     assert "<title>&lt;docs&gt;</title>" in render_html_shell("<docs>")
+    html = render_html_shell("docs portal")
+    assert "scrollActiveNodeIntoView" in html
+    assert "firstPath" in html

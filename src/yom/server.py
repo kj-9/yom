@@ -229,7 +229,7 @@ HTML_SHELL = """<!DOCTYPE html>
     </main>
   </div>
   <script>
-    const state = { tree: null, currentPath: null, version: 0, collapsed: new Set() };
+    const state = { tree: null, currentPath: null, version: 0, firstPath: null, collapsed: new Set() };
     const rootLabel = document.getElementById("rootLabel");
     const treeRoot = document.getElementById("treeRoot");
     const docRoot = document.getElementById("docRoot");
@@ -326,6 +326,14 @@ HTML_SHELL = """<!DOCTYPE html>
         list.appendChild(renderTreeNode(child));
       }
       treeRoot.appendChild(list);
+      scrollActiveNodeIntoView();
+    }
+
+    function scrollActiveNodeIntoView() {
+      const activeNode = treeRoot.querySelector(".node.active");
+      if (activeNode) {
+        activeNode.scrollIntoView({ block: "nearest" });
+      }
     }
 
     async function refreshTree(preferredPath = null) {
@@ -333,17 +341,27 @@ HTML_SHELL = """<!DOCTYPE html>
       const payload = await response.json();
       state.tree = payload.tree;
       state.version = payload.version;
+      state.firstPath = payload.first_path;
       rootLabel.textContent = payload.root;
-      renderTree(payload.tree);
       const target = preferredPath ?? state.currentPath ?? payload.first_path;
       if (target) {
         await loadDoc(target, { skipTree: true });
+        renderTree(payload.tree);
+      } else {
+        renderTree(payload.tree);
       }
     }
 
     async function loadDoc(path, options = {}) {
       const response = await fetch(`/api/doc?path=${encodeURIComponent(path)}`);
       if (!response.ok) {
+        if (!options.fallbackPathTried && state.tree) {
+          const fallbackPath = state.firstPath ?? state.currentPath;
+          if (fallbackPath && fallbackPath !== path) {
+            return loadDoc(fallbackPath, { ...options, fallbackPathTried: true });
+          }
+        }
+        docMeta.textContent = path;
         docRoot.className = "empty";
         docRoot.textContent = "ファイルを読み込めませんでした。";
         return;
