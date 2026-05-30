@@ -42,6 +42,14 @@ def test_parser_supports_markdown_extension_options() -> None:
     assert args.no_default_extensions is True
 
 
+def test_parser_supports_watch_mode() -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(["docs", "--watch-mode", "poll"])
+
+    assert args.watch_mode == "poll"
+
+
 def test_main_shows_helpful_message_when_port_is_in_use(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -107,3 +115,19 @@ def test_main_passes_markdown_extensions(
 
     assert cli.main() == 0
     assert captured["markdown_extensions"] == ["admonition"]
+
+
+def test_main_passes_watch_mode(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_serve(**kwargs: object) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "serve", fake_serve)
+    monkeypatch.setattr(cli, "Path", Path)
+    monkeypatch.setattr("sys.argv", ["yom", str(tmp_path), "--watch-mode", "poll"])
+
+    assert cli.main() == 0
+    assert captured["watch_mode"] == "poll"

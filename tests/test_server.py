@@ -7,6 +7,7 @@ from yom.server import (
     PollingWatcher,
     SiteIndex,
     WatchBroker,
+    create_watcher,
     rewrite_relative_links,
     render_html_shell,
     render_markdown,
@@ -134,3 +135,17 @@ def test_rewrite_relative_links_leaves_invalid_or_external_links(tmp_path: Path)
     assert 'href="https://example.com"' in rewritten
     assert 'href="../missing.md"' in rewritten
     assert 'src="../secret.png"' in rewritten
+
+
+def test_create_watcher_returns_polling_when_requested(tmp_path: Path) -> None:
+    watcher, mode = create_watcher(tmp_path, SiteIndex(tmp_path), WatchBroker(), 0.1, "poll")
+
+    assert isinstance(watcher, PollingWatcher)
+    assert mode == "poll"
+
+
+def test_create_watcher_disables_watch_when_off(tmp_path: Path) -> None:
+    watcher, mode = create_watcher(tmp_path, SiteIndex(tmp_path), WatchBroker(), 0.1, "off")
+
+    assert watcher is None
+    assert mode == "off"

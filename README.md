@@ -60,6 +60,7 @@ uv run yom ~/work/repos/yom/work --host 127.0.0.1 --port 8000 --interval 0.7 --t
 - `--port`: 待受ポート
 - `--interval`: 更新監視のポーリング間隔(秒)
 - `--no-watch`: ファイル更新監視を無効にする
+- `--watch-mode {auto,poll,watchdog}`: 監視方式を切り替える
 - `--title`: ブラウザタイトルを指定する
 - `--no-open`: 起動時のブラウザ自動オープンを無効にする
 - `--markdown-extension NAME`: Markdown 拡張を追加で有効化する
@@ -104,6 +105,13 @@ uv run yom work
 ```bash
 cd ~/work/repos/yom
 uv run yom work --no-watch
+```
+
+`watchdog` を明示的に使いたい場合:
+
+```bash
+cd ~/work/repos/yom
+uv run yom work --watch-mode watchdog
 ```
 
 ブラウザを自動で開きたくない場合:

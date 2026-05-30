@@ -21,6 +21,13 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     markdown_lib = None
 
+try:
+    from watchdog.events import FileSystemEventHandler
+    from watchdog.observers import Observer
+except ModuleNotFoundError:  # pragma: no cover
+    FileSystemEventHandler = None
+    Observer = None
+
 
 HTML_SHELL = files("yom").joinpath("assets/shell.html").read_text(encoding="utf-8")
 APP_STYLE = files("yom").joinpath("assets/style.css").read_text(encoding="utf-8")
@@ -184,6 +191,51 @@ class PollingWatcher(threading.Thread):
                 stat.st_size,
             )
         return snapshot
+
+
+class WatchdogEventHandler(FileSystemEventHandler):  # type: ignore[misc]
+    def __init__(self, root: Path, index: SiteIndex, broker: WatchBroker) -> None:
+        self.root = root
+        self.index = index
+        self.broker = broker
+
+    def on_any_event(self, event: object) -> None:
+        src_path = getattr(event, "src_path", None)
+        if src_path is None:
+            return
+        path = Path(src_path)
+        if path.suffix.lower() != ".md":
+            return
+        try:
+            relative_parts = path.resolve().relative_to(self.root).parts
+        except ValueError:
+            return
+        if any(part.startswith(".") for part in relative_parts):
+            return
+        self.index.refresh()
+        self.broker.publish({"version": self.index.version, "timestamp": time.time()})
+
+
+def create_watcher(root: Path, index: SiteIndex, broker: WatchBroker, interval: float, mode: str) -> tuple[object | None, str]:
+    if mode not in {"auto", "poll", "watchdog", "off"}:
+        raise ValueError(f"unsupported watch mode: {mode}")
+    if mode == "off":
+        return None, "off"
+    if mode in {"auto", "watchdog"} and Observer is not None and FileSystemEventHandler is not None:
+        event_handler = WatchdogEventHandler(root=root, index=index, broker=broker)
+        observer = Observer()
+        observer.schedule(event_handler, str(root), recursive=True)
+        return observer, "watchdog"
+    if mode == "watchdog":
+        raise RuntimeError("watchdog is not installed")
+    return PollingWatcher(root=root, index=index, broker=broker, interval=interval), "poll"
+
+
+def stop_watcher(watcher: object) -> None:
+    watcher.stop()
+    join = getattr(watcher, "join", None)
+    if callable(join):
+        join(timeout=1)
 
 
 def render_markdown(text: str, *, extensions: list[str] | None = None) -> str:
@@ -391,10 +443,17 @@ def serve(
     title: str = "yom",
     open_browser: bool = True,
     markdown_extensions: list[str] | None = None,
+    watch_mode: str = "auto",
 ) -> None:
     index = SiteIndex(root)
     broker = WatchBroker()
-    watcher = PollingWatcher(root=root, index=index, broker=broker, interval=interval)
+    watcher, active_watch_mode = create_watcher(
+        root=root,
+        index=index,
+        broker=broker,
+        interval=interval,
+        mode="off" if not watch else watch_mode,
+    )
     handler = make_handler(
         root=root,
         index=index,
@@ -403,10 +462,10 @@ def serve(
         markdown_extensions=markdown_extensions,
     )
     server = ThreadingHTTPServer((host, port), handler)
-    if watch:
+    if watcher is not None:
         watcher.start()
     url = f"http://{host}:{port}"
-    print(f"yom serving {root} at {url}")
+    print(f"yom serving {root} at {url} (watch: {active_watch_mode})")
     if open_browser:
         webbrowser.open(url)
     try:
@@ -414,6 +473,6 @@ def serve(
     except KeyboardInterrupt:
         pass
     finally:
-        if watch:
-            watcher.stop()
+        if watcher is not None:
+            stop_watcher(watcher)
         server.server_close()

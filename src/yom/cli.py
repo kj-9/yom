@@ -53,6 +53,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="既定の Markdown 拡張機能を無効にする",
     )
+    parser.add_argument(
+        "--watch-mode",
+        choices=["auto", "poll", "watchdog"],
+        default="auto",
+        help="監視方式。auto は watchdog 優先、未導入時は poll にフォールバック",
+    )
     return parser
 
 
@@ -76,7 +82,10 @@ def main() -> int:
             title=args.title,
             open_browser=not args.no_open,
             markdown_extensions=markdown_extensions,
+            watch_mode=args.watch_mode,
         )
+    except RuntimeError as exc:
+        parser.error(str(exc))
     except OSError as exc:
         if exc.errno == errno.EADDRINUSE:
             parser.error(
