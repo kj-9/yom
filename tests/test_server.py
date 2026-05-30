@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yom.server import PollingWatcher, SiteIndex, WatchBroker, render_html_shell
+from yom.server import (
+    DEFAULT_MARKDOWN_EXTENSIONS,
+    PollingWatcher,
+    SiteIndex,
+    WatchBroker,
+    rewrite_relative_links,
+    render_html_shell,
+    render_markdown,
+)
 
 
 def write(path: Path, content: str) -> None:
@@ -86,3 +94,43 @@ def test_make_handler_injects_custom_title(tmp_path: Path) -> None:
     html = render_html_shell("docs portal")
     assert "scrollActiveNodeIntoView" in html
     assert "firstPath" in html
+
+
+def test_render_markdown_uses_configured_extensions() -> None:
+    html = render_markdown("| a |\n| - |\n| b |", extensions=["tables"])
+    assert "<table>" in html
+
+    plain_html = render_markdown("| a |\n| - |\n| b |", extensions=[])
+    assert "<table>" not in plain_html
+    assert DEFAULT_MARKDOWN_EXTENSIONS
+
+
+def test_rewrite_relative_links_rewrites_markdown_and_assets(tmp_path: Path) -> None:
+    write(tmp_path / "guide.md", "# Guide")
+    write(tmp_path / "docs" / "page.md", "# Page")
+    write(tmp_path / "docs" / "image.png", "png")
+    index = SiteIndex(tmp_path)
+
+    rewritten = rewrite_relative_links(
+        '<p><a href="../guide.md">guide</a> <img src="image.png" alt="img"></p>',
+        source=tmp_path / "docs" / "page.md",
+        index=index,
+    )
+
+    assert 'href="/?path=guide.md"' in rewritten
+    assert 'src="/assets?path=docs/image.png"' in rewritten
+
+
+def test_rewrite_relative_links_leaves_invalid_or_external_links(tmp_path: Path) -> None:
+    write(tmp_path / "docs" / "page.md", "# Page")
+    index = SiteIndex(tmp_path)
+
+    rewritten = rewrite_relative_links(
+        '<p><a href="https://example.com">ext</a> <a href="../missing.md">missing</a> <img src="../secret.png"></p>',
+        source=tmp_path / "docs" / "page.md",
+        index=index,
+    )
+
+    assert 'href="https://example.com"' in rewritten
+    assert 'href="../missing.md"' in rewritten
+    assert 'src="../secret.png"' in rewritten

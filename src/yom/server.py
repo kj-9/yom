@@ -11,6 +11,7 @@ import webbrowser
 from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -405,6 +406,9 @@ def render_html_shell(title: str) -> str:
     return HTML_SHELL.replace("<title>{title}</title>", f"<title>{html.escape(title)}</title>")
 
 
+DEFAULT_MARKDOWN_EXTENSIONS = ["fenced_code", "tables", "toc", "sane_lists"]
+
+
 @dataclass
 class Node:
     name: str
@@ -451,6 +455,17 @@ class SiteIndex:
         if self.root not in candidate.parents and candidate != self.root:
             raise ValueError("invalid path")
         if candidate.suffix.lower() != ".md" or not candidate.is_file():
+            raise FileNotFoundError(raw_path)
+        return candidate
+
+    def resolve_relative(self, source: Path, raw_path: str) -> Path:
+        relative_path = raw_path.strip()
+        if not relative_path:
+            raise FileNotFoundError(raw_path)
+        candidate = (source.parent / Path(posixpath.normpath(relative_path))).resolve()
+        if self.root not in candidate.parents and candidate != self.root:
+            raise ValueError("invalid path")
+        if not candidate.exists() or not candidate.is_file():
             raise FileNotFoundError(raw_path)
         return candidate
 
@@ -542,18 +557,102 @@ class PollingWatcher(threading.Thread):
         return snapshot
 
 
-def render_markdown(text: str) -> str:
+def render_markdown(text: str, *, extensions: list[str] | None = None) -> str:
     if markdown_lib is not None:
         return markdown_lib.markdown(
             text,
-            extensions=["fenced_code", "tables", "toc", "sane_lists"],
+            extensions=DEFAULT_MARKDOWN_EXTENSIONS if extensions is None else extensions,
             output_format="html5",
         )
     escaped = html.escape(text)
     return f"<pre><code>{escaped}</code></pre>"
 
 
-def make_handler(root: Path, index: SiteIndex, broker: WatchBroker, title: str) -> type[BaseHTTPRequestHandler]:
+def is_local_relative_url(value: str) -> bool:
+    stripped = value.strip()
+    if not stripped or stripped.startswith(("#", "http://", "https://", "mailto:", "data:")):
+        return False
+    return not stripped.startswith("/")
+
+
+class RelativeLinkRewriter(HTMLParser):
+    def __init__(self, source: Path, index: SiteIndex) -> None:
+        super().__init__(convert_charrefs=False)
+        self.source = source
+        self.index = index
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.parts.append(self._render_tag(tag, attrs, closing=False))
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.parts.append(self._render_tag(tag, attrs, closing=True))
+
+    def handle_endtag(self, tag: str) -> None:
+        self.parts.append(f"</{tag}>")
+
+    def handle_data(self, data: str) -> None:
+        self.parts.append(data)
+
+    def handle_entityref(self, name: str) -> None:
+        self.parts.append(f"&{name};")
+
+    def handle_charref(self, name: str) -> None:
+        self.parts.append(f"&#{name};")
+
+    def handle_comment(self, data: str) -> None:
+        self.parts.append(f"<!--{data}-->")
+
+    def handle_decl(self, decl: str) -> None:
+        self.parts.append(f"<!{decl}>")
+
+    def rewrite(self, content: str) -> str:
+        self.feed(content)
+        self.close()
+        return "".join(self.parts)
+
+    def _render_tag(self, tag: str, attrs: list[tuple[str, str | None]], *, closing: bool) -> str:
+        rendered: list[str] = []
+        for key, value in attrs:
+            if value is None:
+                rendered.append(key)
+                continue
+            rewritten = self._rewrite_attr(tag, key, value)
+            rendered.append(f'{key}="{html.escape(rewritten, quote=True)}"')
+        suffix = " /" if closing else ""
+        return f"<{tag}{(' ' + ' '.join(rendered)) if rendered else ''}{suffix}>"
+
+    def _rewrite_attr(self, tag: str, key: str, value: str) -> str:
+        if tag == "img" and key == "src":
+            return self._rewrite_path(value, asset_mode=True)
+        if tag == "a" and key == "href":
+            return self._rewrite_path(value, asset_mode=False)
+        return value
+
+    def _rewrite_path(self, value: str, *, asset_mode: bool) -> str:
+        if not is_local_relative_url(value):
+            return value
+        try:
+            target = self.index.resolve_relative(self.source, value)
+        except (ValueError, FileNotFoundError):
+            return value
+        relative = target.relative_to(self.index.root).as_posix()
+        if not asset_mode and target.suffix.lower() == ".md":
+            return f"/?path={relative}"
+        return f"/assets?path={relative}"
+
+
+def rewrite_relative_links(content: str, *, source: Path, index: SiteIndex) -> str:
+    return RelativeLinkRewriter(source=source, index=index).rewrite(content)
+
+
+def make_handler(
+    root: Path,
+    index: SiteIndex,
+    broker: WatchBroker,
+    title: str,
+    markdown_extensions: list[str] | None,
+) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
@@ -563,6 +662,8 @@ def make_handler(root: Path, index: SiteIndex, broker: WatchBroker, title: str) 
                 return self._send_json(index.snapshot())
             if parsed.path == "/api/doc":
                 return self._handle_doc(parsed.query)
+            if parsed.path == "/assets":
+                return self._handle_asset(parsed.query)
             if parsed.path == "/events":
                 return self._handle_events()
             self.send_error(HTTPStatus.NOT_FOUND, "not found")
@@ -585,9 +686,33 @@ def make_handler(root: Path, index: SiteIndex, broker: WatchBroker, title: str) 
             source = target.read_text(encoding="utf-8")
             payload = {
                 "path": target.relative_to(root).as_posix(),
-                "html": render_markdown(source),
+                "html": rewrite_relative_links(
+                    render_markdown(source, extensions=markdown_extensions),
+                    source=target,
+                    index=index,
+                ),
             }
             self._send_json(payload)
+
+        def _handle_asset(self, query: str) -> None:
+            params = parse_qs(query)
+            raw_path = params.get("path", [""])[0]
+            try:
+                target = index.resolve_relative(root / "_index.md", raw_path)
+            except ValueError:
+                self.send_error(HTTPStatus.BAD_REQUEST, "invalid path")
+                return
+            except FileNotFoundError:
+                self.send_error(HTTPStatus.NOT_FOUND, "missing asset file")
+                return
+
+            content_type, _ = mimetypes.guess_type(target.name)
+            data = target.read_bytes()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", content_type or "application/octet-stream")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
 
         def _handle_events(self) -> None:
             channel = broker.subscribe()
@@ -636,11 +761,18 @@ def serve(
     watch: bool = True,
     title: str = "yom",
     open_browser: bool = True,
+    markdown_extensions: list[str] | None = None,
 ) -> None:
     index = SiteIndex(root)
     broker = WatchBroker()
     watcher = PollingWatcher(root=root, index=index, broker=broker, interval=interval)
-    handler = make_handler(root=root, index=index, broker=broker, title=title)
+    handler = make_handler(
+        root=root,
+        index=index,
+        broker=broker,
+        title=title,
+        markdown_extensions=markdown_extensions,
+    )
     server = ThreadingHTTPServer((host, port), handler)
     if watch:
         watcher.start()

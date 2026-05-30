@@ -7,6 +7,7 @@
 - `.md` ファイルを再帰的に探索
 - サイドバーにファイルツリーを表示
 - Markdown を HTML としてレンダリング
+- Markdown 内の相対リンクと画像パスを解決
 - ファイル更新を監視し、ブラウザへ即時反映
 - 単一コマンドでローカルサーバー起動
 
@@ -59,6 +60,28 @@ uv run yom ~/work/repos/yom/work --host 127.0.0.1 --port 8000 --interval 0.7 --t
 - `--no-watch`: ファイル更新監視を無効にする
 - `--title`: ブラウザタイトルを指定する
 - `--no-open`: 起動時のブラウザ自動オープンを無効にする
+- `--markdown-extension NAME`: Markdown 拡張を追加で有効化する
+- `--no-default-extensions`: 既定の Markdown 拡張を無効化する
+
+Markdown 拡張を切り替えたい場合:
+
+```bash
+cd ~/work/repos/yom
+uv run yom work --markdown-extension admonition
+```
+
+既定拡張を使わずに最小構成で試したい場合:
+
+```bash
+cd ~/work/repos/yom
+uv run yom work --no-default-extensions
+```
+
+相対リンクの挙動:
+
+- `./other.md` や `../guide.md` のような Markdown リンクは `yom` 内の表示遷移に変換される
+- `./image.png` のような画像パスはローカルアセットとして配信される
+- ディレクトリ外を指す参照はそのまま解決されず、外部への読み出しには使えない
 
 ## 更新監視の確認
 
