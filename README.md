@@ -11,29 +11,39 @@
 - Watches for file changes and updates the browser automatically
 - Starts a local server with a single command
 
-## Installation
+## Quick Start
 
-Install from PyPI:
+The fastest way to browse Markdown in the current directory is:
+
+```bash
+uvx yom .
+```
+
+This downloads and runs `yom` on demand, so you can open a Markdown tree immediately without setting up a virtual environment or installing the package first.
+
+You can also serve a specific directory:
+
+```bash
+uvx yom /path/to/docs
+```
+
+If you plan to use `yom` repeatedly, install it once:
 
 ```bash
 pip install yom
 ```
 
-If you use `uv`, you can also run it without a manual virtual environment step:
+Or with `uv`:
 
 ```bash
 uv tool install yom
 ```
 
-## Quick Start
-
-Serve the current directory:
+After installation, the equivalent commands are:
 
 ```bash
 yom .
 ```
-
-Serve a specific directory:
 
 ```bash
 yom /path/to/docs
