@@ -18,6 +18,10 @@ const docMeta = document.getElementById("docMeta");
 const statusText = document.getElementById("statusText");
 const statusBadge = document.getElementById("statusBadge");
 const treeSearch = document.getElementById("treeSearch");
+const treeContextMenu = document.getElementById("treeContextMenu");
+const contextMenuOpen = document.getElementById("contextMenuOpen");
+const contextMenuCopyPath = document.getElementById("contextMenuCopyPath");
+const contextMenuOpenTab = document.getElementById("contextMenuOpenTab");
 const mobileNavToggle = document.getElementById("mobileNavToggle");
 const themeToggle = document.getElementById("themeToggle");
 const paletteSelect = document.getElementById("paletteSelect");
@@ -35,6 +39,12 @@ const SIDEBAR_WIDTH_KEY = "yom-sidebar-width";
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 560;
 const SIDEBAR_DEFAULT_WIDTH = 304;
+const CONTEXT_COPY_LABEL = "Copy path";
+const CONTEXT_COPY_SUCCESS_LABEL = "Copied";
+const CONTEXT_COPY_ERROR_LABEL = "Copy failed";
+
+let contextMenuPath = null;
+let contextMenuResetTimer = null;
 
 function applyTheme(theme) {
   document.body.dataset.theme = theme;
@@ -87,6 +97,90 @@ function initializeSidebarWidth() {
 function setStatus(text, state = "ready") {
   statusText.textContent = text;
   statusBadge.dataset.state = state;
+}
+
+async function writeClipboardText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const input = document.createElement("textarea");
+  input.value = text;
+  input.setAttribute("readonly", "");
+  input.style.position = "absolute";
+  input.style.left = "-9999px";
+  document.body.appendChild(input);
+  input.select();
+  const copied = document.execCommand("copy");
+  document.body.removeChild(input);
+  if (!copied) {
+    throw new Error("copy failed");
+  }
+}
+
+function resetContextMenuCopyLabel() {
+  if (contextMenuResetTimer) {
+    clearTimeout(contextMenuResetTimer);
+    contextMenuResetTimer = null;
+  }
+  if (contextMenuCopyPath) {
+    contextMenuCopyPath.textContent = CONTEXT_COPY_LABEL;
+  }
+}
+
+function closeTreeContextMenu() {
+  if (!treeContextMenu) {
+    return;
+  }
+  treeContextMenu.hidden = true;
+  contextMenuPath = null;
+  resetContextMenuCopyLabel();
+}
+
+function openTreeContextMenu(path, x, y) {
+  if (!treeContextMenu) {
+    return;
+  }
+
+  contextMenuPath = path;
+  resetContextMenuCopyLabel();
+  treeContextMenu.hidden = false;
+
+  const { innerWidth, innerHeight } = window;
+  const menuRect = treeContextMenu.getBoundingClientRect();
+  const left = Math.min(x, innerWidth - menuRect.width - 12);
+  const top = Math.min(y, innerHeight - menuRect.height - 12);
+
+  treeContextMenu.style.left = `${Math.max(12, left)}px`;
+  treeContextMenu.style.top = `${Math.max(12, top)}px`;
+}
+
+async function copyPath(path, button) {
+  if (!path) {
+    return;
+  }
+
+  try {
+    await writeClipboardText(path);
+    if (button) {
+      button.textContent = CONTEXT_COPY_SUCCESS_LABEL;
+      contextMenuResetTimer = window.setTimeout(() => {
+        if (button.isConnected) {
+          button.textContent = CONTEXT_COPY_LABEL;
+        }
+      }, 1600);
+    }
+  } catch {
+    if (button) {
+      button.textContent = CONTEXT_COPY_ERROR_LABEL;
+      contextMenuResetTimer = window.setTimeout(() => {
+        if (button.isConnected) {
+          button.textContent = CONTEXT_COPY_LABEL;
+        }
+      }, 2200);
+    }
+  }
 }
 
 function currentPathFromUrl() {
@@ -209,6 +303,10 @@ function renderTreeNode(node) {
   }
   button.textContent = node.name;
   button.onclick = () => loadDoc(node.path);
+  button.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    openTreeContextMenu(node.path, event.clientX, event.clientY);
+  });
   item.appendChild(button);
   return item;
 }
@@ -412,6 +510,26 @@ docRoot.addEventListener("click", (event) => {
   loadDoc(path);
 });
 
+document.addEventListener("click", (event) => {
+  if (!treeContextMenu || treeContextMenu.hidden) {
+    return;
+  }
+  if (treeContextMenu.contains(event.target)) {
+    return;
+  }
+  closeTreeContextMenu();
+});
+
+document.addEventListener(
+  "scroll",
+  () => {
+    if (!treeContextMenu?.hidden) {
+      closeTreeContextMenu();
+    }
+  },
+  true,
+);
+
 mobileNavToggle.addEventListener("click", () => {
   const nextOpen = !document.body.classList.contains("nav-open");
   document.body.classList.toggle("nav-open", nextOpen);
@@ -429,9 +547,39 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !treeContextMenu?.hidden) {
+    closeTreeContextMenu();
+    return;
+  }
   if (event.key === "Escape" && settingsPanel?.open) {
     settingsPanel.open = false;
   }
+});
+
+contextMenuOpen?.addEventListener("click", () => {
+  if (!contextMenuPath) {
+    return;
+  }
+  loadDoc(contextMenuPath);
+  closeTreeContextMenu();
+});
+
+contextMenuCopyPath?.addEventListener("click", async () => {
+  if (!contextMenuPath) {
+    return;
+  }
+  await copyPath(contextMenuPath, contextMenuCopyPath);
+  window.setTimeout(closeTreeContextMenu, 300);
+});
+
+contextMenuOpenTab?.addEventListener("click", () => {
+  if (!contextMenuPath) {
+    return;
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.set("path", contextMenuPath);
+  window.open(url.toString(), "_blank", "noopener");
+  closeTreeContextMenu();
 });
 
 themeToggle.addEventListener("click", () => {
