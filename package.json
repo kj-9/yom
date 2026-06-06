@@ -24,7 +24,7 @@
     "test": "vitest run",
     "check": "tsc --noEmit",
     "publish-alpha": "bun publish --tag alpha --access public",
-    "format": "prettier --check \"bin/yom-next\" \"index.html\" \"src/**/*.{ts,css}\" \"tests/**/*.ts\""
+    "format": "prettier --check \"bin\" \"index.html\" \"src/**/*.{ts,css}\" \"tests/**/*.ts\""
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
