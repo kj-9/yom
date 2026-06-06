@@ -57,6 +57,39 @@ bun run ./src/cli/index.ts build --root . --out-dir dist
 
 ブラウザ UI ではサイドバーのツリー表示と文書内遷移も動きます。
 
+## Alpha 配布
+
+このリポジトリから Bun CLI をローカル導入するなら:
+
+```bash
+cd ~/work/repos/yom
+bun install
+bun link
+```
+
+これで次のように呼べます:
+
+```bash
+yom-next dev --root .
+yom-next build --root . --out-dir dist
+```
+
+npm 配布物の確認:
+
+```bash
+cd ~/work/repos/yom
+npm pack
+```
+
+alpha 公開:
+
+```bash
+cd ~/work/repos/yom
+npm publish --tag alpha
+```
+
+現状の package は実行時に `bun` が入っている前提です。
+
 個別に整形と lint を回す場合:
 
 ```bash

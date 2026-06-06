@@ -18,6 +18,7 @@ export async function loadSiteSnapshot(root: string) {
 export async function loadDocument(
   root: string,
   relativePath: string,
+  options?: { mode?: "static" | "dev" },
 ): Promise<DocumentPayload> {
   const resolvedRoot = path.resolve(root);
   const normalizedPath = normalizeMarkdownPath(relativePath);
@@ -35,6 +36,7 @@ export async function loadDocument(
     html: rewriteRelativeLinks(renderMarkdown(raw), {
       sourcePath: normalizedPath,
       existingPaths,
+      mode: options?.mode ?? "static",
     }),
   };
 }

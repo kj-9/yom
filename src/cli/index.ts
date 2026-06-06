@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import { buildStaticSite } from "./build";
 
 type Command = "dev" | "build" | "preview";
+const HELP_FLAGS = new Set(["-h", "--help"]);
 
 type CliOptions = {
   command: Command;
@@ -15,8 +16,13 @@ type CliOptions = {
 };
 
 if (import.meta.main) {
-  const options = parseArgs(process.argv.slice(2));
-  await run(options);
+  const argv = process.argv.slice(2);
+  if (argv.some((token) => HELP_FLAGS.has(token))) {
+    printHelp();
+  } else {
+    const options = parseArgs(argv);
+    await run(options);
+  }
 }
 
 export async function run(options: CliOptions): Promise<void> {
@@ -122,4 +128,20 @@ async function spawnBun(args: string[]): Promise<void> {
 
 function isCommand(value: string): value is Command {
   return value === "dev" || value === "build" || value === "preview";
+}
+
+function printHelp(): void {
+  console.log(`Usage: yom-next <command> [options]
+
+Commands:
+  dev      Run the Vite development server
+  build    Build the static site into the output directory
+  preview  Preview the built site with Vite
+
+Options:
+  --root <path>     Root directory to serve or build (default: .)
+  --out-dir <path>  Output directory for build (default: dist)
+  --host <host>     Host to bind the dev/preview server (default: 127.0.0.1)
+  --port <port>     Port to bind the dev/preview server (default: 4173)
+  -h, --help        Show this help message`);
 }

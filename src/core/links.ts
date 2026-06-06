@@ -7,6 +7,7 @@ export function rewriteRelativeLinks(
   options: {
     sourcePath: string;
     existingPaths: Set<string>;
+    mode?: "static" | "dev";
   },
 ): string {
   const sourcePath = normalizeRelativePath(options.sourcePath);
@@ -25,6 +26,7 @@ export function rewriteRelativeLinks(
         tag,
         sourcePath,
         existingPaths: options.existingPaths,
+        mode: options.mode ?? "static",
       });
 
       return `<${tag}${before} ${attr}="${escapeHtmlAttribute(rewritten)}"${after}>`;
@@ -55,6 +57,7 @@ function rewritePath(
     tag: string;
     sourcePath: string;
     existingPaths: Set<string>;
+    mode: "static" | "dev";
   },
 ): string {
   if (!isLocalRelativeUrl(value)) {
@@ -74,9 +77,15 @@ function rewritePath(
     options.tag === "a" &&
     resolvedRelativePath.toLowerCase().endsWith(".md")
   ) {
+    if (options.mode === "dev") {
+      return `/?path=${resolvedRelativePath}`;
+    }
     return docRouteFromRelativePath(resolvedRelativePath);
   }
 
+  if (options.mode === "dev") {
+    return `/assets?path=${resolvedRelativePath}`;
+  }
   return assetRouteFromRelativePath(resolvedRelativePath);
 }
 

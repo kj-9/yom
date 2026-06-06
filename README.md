@@ -178,3 +178,33 @@ npm run test
 ```
 
 The Japanese translation is available at [README.ja.md](README.ja.md).
+
+## Alpha Publish
+
+The Bun CLI can be installed locally from this repository with:
+
+```bash
+bun install
+bun link
+```
+
+This exposes:
+
+```bash
+yom-next dev --root .
+yom-next build --root . --out-dir dist
+```
+
+To verify the npm package contents before publishing:
+
+```bash
+npm pack
+```
+
+To publish an alpha release:
+
+```bash
+npm publish --tag alpha
+```
+
+This package currently expects `bun` to be available at runtime.

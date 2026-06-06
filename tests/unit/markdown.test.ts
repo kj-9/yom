@@ -30,6 +30,20 @@ describe("rewriteRelativeLinks", () => {
     expect(html).toContain('src="/assets/docs/image.png"');
   });
 
+  it("rewrites dev-mode links with query-string routes", () => {
+    const html = rewriteRelativeLinks(
+      '<p><a href="../guide.md">guide</a> <img src="image.png" alt="img"></p>',
+      {
+        sourcePath: "docs/page.md",
+        existingPaths: new Set(["guide.md", "docs/image.png"]),
+        mode: "dev",
+      },
+    );
+
+    expect(html).toContain('href="/?path=guide.md"');
+    expect(html).toContain('src="/assets?path=docs/image.png"');
+  });
+
   it("leaves invalid and external links untouched", () => {
     const html = rewriteRelativeLinks(
       [
