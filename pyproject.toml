@@ -30,7 +30,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-yom = ["assets/*.html", "assets/*.css", "assets/*.js"]
+yom = ["assets/*.html", "assets/*.css", "assets/*.js", "assets/*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

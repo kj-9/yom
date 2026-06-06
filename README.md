@@ -7,6 +7,7 @@
 - Recursively discovers Markdown files
 - Shows a file tree in the sidebar
 - Renders Markdown as HTML
+- Renders Mermaid code fences as diagrams in the browser
 - Resolves relative links and image paths inside Markdown
 - Watches for file changes and updates the browser automatically
 - Starts a local server with a single command
@@ -83,6 +84,16 @@ extension name through to the underlying Python-Markdown renderer. For example,
 By default, yom enables `fenced_code`, `tables`, `toc`, and `sane_lists`. Use
 `--no-default-extensions` if you want to start from an empty extension set and opt in
 only to the extensions you need.
+
+Mermaid code fences are rendered automatically in the browser:
+
+~~~md
+```mermaid
+graph TD
+  Start --> Review
+  Review --> Ship
+```
+~~~
 
 Run with the minimal Markdown configuration:
 

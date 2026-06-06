@@ -45,6 +45,7 @@ const CONTEXT_COPY_ERROR_LABEL = "Copy failed";
 
 let contextMenuPath = null;
 let contextMenuResetTimer = null;
+let mermaidInitialized = false;
 
 function applyTheme(theme) {
   document.body.dataset.theme = theme;
@@ -343,6 +344,67 @@ function renderCurrentDocument() {
   docRoot.hidden = false;
   docRoot.className = "";
   docRoot.innerHTML = state.currentHtml;
+  renderMermaidDiagrams();
+}
+
+function initializeMermaid() {
+  if (mermaidInitialized || typeof window.mermaid === "undefined") {
+    return;
+  }
+  window.mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "strict",
+    theme: document.body.dataset.theme === "dark" ? "dark" : "default",
+  });
+  mermaidInitialized = true;
+}
+
+function restoreMermaidCodeBlocks() {
+  for (const graph of docRoot.querySelectorAll(".mermaid")) {
+    const wrapper = graph.parentElement;
+    if (!(wrapper instanceof HTMLElement)) {
+      continue;
+    }
+    const fallback = document.createElement("pre");
+    const code = document.createElement("code");
+    code.className = "language-mermaid";
+    code.textContent = graph.textContent || "";
+    fallback.appendChild(code);
+    wrapper.replaceWith(fallback);
+  }
+}
+
+function renderMermaidDiagrams() {
+  if (typeof window.mermaid === "undefined") {
+    return;
+  }
+
+  initializeMermaid();
+  const blocks = docRoot.querySelectorAll("pre > code.language-mermaid");
+  if (!blocks.length) {
+    return;
+  }
+
+  for (const block of blocks) {
+    const container = block.parentElement;
+    if (!(container instanceof HTMLElement)) {
+      continue;
+    }
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "mermaid-block";
+    const graph = document.createElement("div");
+    graph.className = "mermaid";
+    graph.textContent = block.textContent || "";
+    wrapper.appendChild(graph);
+    container.replaceWith(wrapper);
+  }
+
+  window.mermaid
+    .run({ nodes: docRoot.querySelectorAll(".mermaid") })
+    .catch(() => {
+      restoreMermaidCodeBlocks();
+    });
 }
 
 function renderLoadingState(path) {
@@ -586,6 +648,10 @@ themeToggle.addEventListener("click", () => {
   const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark";
   localStorage.setItem(THEME_KEY, nextTheme);
   applyTheme(nextTheme);
+  mermaidInitialized = false;
+  if (state.viewMode === "rendered" && state.currentPath) {
+    renderCurrentDocument();
+  }
 });
 
 paletteSelect.addEventListener("change", () => {

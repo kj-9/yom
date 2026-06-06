@@ -139,6 +139,14 @@ def test_make_handler_injects_custom_title(tmp_path: Path) -> None:
     html = render_html_shell("docs portal")
     assert "scrollActiveNodeIntoView" in html
     assert "firstPath" in html
+    assert "window.mermaid" in html
+
+
+def test_render_markdown_keeps_mermaid_fence_as_code_block() -> None:
+    html = render_markdown("```mermaid\ngraph TD\n  A-->B\n```")
+
+    assert "language-mermaid" in html
+    assert "graph TD" in html
 
 
 def test_render_markdown_uses_configured_extensions() -> None:

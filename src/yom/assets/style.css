@@ -838,6 +838,22 @@ blockquote {
   line-height: 1.65;
 }
 
+.mermaid-block {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--content-bg) 88%, var(--accent-soft));
+  overflow-x: auto;
+}
+
+.mermaid-block svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
 #docRoot > :first-child {
   margin-top: 0;
 }

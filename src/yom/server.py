@@ -51,6 +51,7 @@ else:
 
 HTML_SHELL = files("yom").joinpath("assets/shell.html").read_text(encoding="utf-8")
 APP_STYLE = files("yom").joinpath("assets/style.css").read_text(encoding="utf-8")
+APP_MERMAID = files("yom").joinpath("assets/mermaid.bundle.txt").read_text(encoding="utf-8")
 APP_SCRIPT = files("yom").joinpath("assets/app.js").read_text(encoding="utf-8")
 
 
@@ -58,6 +59,7 @@ def render_html_shell(title: str) -> str:
     return (
         HTML_SHELL.replace("__YOM_TITLE__", html.escape(title))
         .replace("__YOM_STYLE__", APP_STYLE)
+        .replace("__YOM_MERMAID__", APP_MERMAID)
         .replace("__YOM_SCRIPT__", APP_SCRIPT)
     )
 
