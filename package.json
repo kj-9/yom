@@ -15,7 +15,7 @@
     "LICENSE"
   ],
   "bin": {
-    "yom-next": "./bin/yom-next"
+    "yom": "./bin/yom"
   },
   "scripts": {
     "dev": "bun run ./src/cli/index.ts dev",

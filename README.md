@@ -44,24 +44,24 @@ You can also invoke the linked CLI directly:
 
 ```bash
 bun link
-yom-next dev --root .
+yom dev --root .
 ```
 
 ## Usage
 
 ```bash
-yom-next dev --root /path/to/docs --host 127.0.0.1 --port 4173
+yom dev --root /path/to/docs --host 127.0.0.1 --port 4173
 ```
 
 ```bash
-yom-next build --root /path/to/docs --out-dir dist
+yom build --root /path/to/docs --out-dir dist
 ```
 
 ```bash
-yom-next preview --host 127.0.0.1 --port 4173
+yom preview --host 127.0.0.1 --port 4173
 ```
 
-Options available through `yom-next --help`:
+Options available through `yom --help`:
 
 - `dev`: start the Vite development server
 - `build`: build the static site into the output directory

@@ -43,24 +43,24 @@ CLI をリンクして直接呼ぶこともできます。
 
 ```bash
 bun link
-yom-next dev --root .
+yom dev --root .
 ```
 
 ## 使い方
 
 ```bash
-yom-next dev --root /path/to/docs --host 127.0.0.1 --port 4173
+yom dev --root /path/to/docs --host 127.0.0.1 --port 4173
 ```
 
 ```bash
-yom-next build --root /path/to/docs --out-dir dist
+yom build --root /path/to/docs --out-dir dist
 ```
 
 ```bash
-yom-next preview --host 127.0.0.1 --port 4173
+yom preview --host 127.0.0.1 --port 4173
 ```
 
-`yom-next --help` で確認できる主な項目:
+`yom --help` で確認できる主な項目:
 
 - `dev`: Vite 開発サーバーを起動
 - `build`: 出力ディレクトリへ静的サイトを生成

@@ -16,7 +16,7 @@ export type CliOptions = {
   port: number;
 };
 
-const cli = cac("yom-next");
+const cli = cac("yom");
 
 cli
   .command("dev", "Run the Vite development server")
@@ -79,7 +79,7 @@ if (isDirectExecution(process.argv)) {
 }
 
 export async function main(argv: string[]): Promise<void> {
-  await cli.parse(["bun", "yom-next", ...argv], { run: true });
+  await cli.parse(["bun", "yom", ...argv], { run: true });
 }
 
 export async function run(options: CliOptions): Promise<void> {
