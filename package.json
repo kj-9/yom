@@ -1,5 +1,5 @@
 {
-  "name": "yom",
+  "name": "@kj-9/yom",
   "version": "0.1.0-alpha.0",
   "description": "Markdown tree viewer and static site builder powered by Bun",
   "license": "MIT",
@@ -23,6 +23,7 @@
     "preview": "bun run ./src/cli/index.ts preview",
     "test": "vitest run",
     "check": "tsc --noEmit",
+    "dryrun-publish": "bun publish --tag alpha --dryrun  --access public",
     "format": "prettier --check \"bin/yom-next\" \"index.html\" \"src/**/*.{ts,css}\" \"tests/**/*.ts\""
   },
   "devDependencies": {
