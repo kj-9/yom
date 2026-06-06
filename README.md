@@ -1,6 +1,8 @@
 # yom
 
-`yom` is a local web viewer for Markdown trees. It scans a directory, renders `.md` files, and serves them in a sidebar-based browser UI with live reload.
+`yom` is a Bun-powered local web viewer and static site builder for Markdown trees.
+It scans a directory, renders `.md` files, and serves them in a sidebar-based browser UI
+with live reload.
 
 ## Features
 
@@ -10,96 +12,73 @@
 - Renders Mermaid code fences as diagrams in the browser
 - Resolves relative links and image paths inside Markdown
 - Watches for file changes and updates the browser automatically
-- Starts a local server with a single command
+- Builds a static site from the same content tree
 
 ## Quick Start
 
-The fastest way to browse Markdown in the current directory is:
+Install dependencies:
 
 ```bash
-uvx yom .
+bun install
 ```
 
-This downloads and runs `yom` on demand, so you can open a Markdown tree immediately without setting up a virtual environment or installing the package first.
-
-You can also serve a specific directory:
+Start the dev server for the current directory:
 
 ```bash
-uvx yom /path/to/docs
+bun run dev --root .
 ```
 
-If you plan to use `yom` repeatedly, install it once:
+Build a static site:
 
 ```bash
-pip install yom
+bun run build --root . --out-dir dist
 ```
 
-Or with `uv`:
+Preview the built site:
 
 ```bash
-uv tool install yom
+bun run preview
 ```
 
-After installation, the equivalent commands are:
+You can also invoke the linked CLI directly:
 
 ```bash
-yom .
+bun link
+yom-next dev --root .
 ```
-
-```bash
-yom /path/to/docs
-```
-
-By default, `yom` starts a local server on `http://127.0.0.1:8000` and opens it in your browser.
 
 ## Usage
 
 ```bash
-yom /path/to/docs --host 127.0.0.1 --port 8000 --interval 0.7 --title "My docs"
+yom-next dev --root /path/to/docs --host 127.0.0.1 --port 4173
 ```
-
-Options available through `yom --help`:
-
-- `root`: directory to scan
-- `--host`: bind host
-- `--port`: bind port
-- `--interval`: polling interval for change detection, in seconds
-- `--no-watch`: disable file watching
-- `--watch-mode {auto,poll,watchdog}`: choose the watch backend
-- `--title`: browser window title
-- `--no-open`: disable automatic browser launch on startup
-- `--markdown-extension NAME`: enable an additional Markdown extension
-- `--no-default-extensions`: disable the built-in Markdown extensions
-
-Enable an extra Markdown extension:
 
 ```bash
-yom /path/to/docs --markdown-extension admonition
+yom-next build --root /path/to/docs --out-dir dist
 ```
-
-`--markdown-extension` does not enable a yom-specific feature. It passes an additional
-extension name through to the underlying Python-Markdown renderer. For example,
-`admonition` enables admonition block syntax supported by Python-Markdown.
-
-By default, yom enables `fenced_code`, `tables`, `toc`, and `sane_lists`. Use
-`--no-default-extensions` if you want to start from an empty extension set and opt in
-only to the extensions you need.
-
-Mermaid code fences are rendered automatically in the browser:
-
-~~~md
-```mermaid
-graph TD
-  Start --> Review
-  Review --> Ship
-```
-~~~
-
-Run with the minimal Markdown configuration:
 
 ```bash
-yom /path/to/docs --no-default-extensions
+yom-next preview --host 127.0.0.1 --port 4173
 ```
+
+Options available through `yom-next --help`:
+
+- `dev`: start the Vite development server
+- `build`: build the static site into the output directory
+- `preview`: preview the built site with Vite
+- `--root`: root directory to serve or build
+- `--out-dir`: output directory for build artifacts
+- `--host`: bind host for dev or preview
+- `--port`: bind port for dev or preview
+
+`bun run build` generates static document pages into `dist/docs/`, copies non-Markdown
+assets into `dist/assets/`, and writes `dist/tree.json`.
+
+`bun run dev` serves:
+
+- `/api/tree`: scanned Markdown tree
+- `/api/doc?path=...`: rendered HTML payload for one Markdown file
+- `/assets/...`: local referenced assets
 
 ## Relative Paths
 
@@ -107,104 +86,68 @@ yom /path/to/docs --no-default-extensions
 - Image paths such as `./image.png` are served as local assets
 - References that point outside the scanned directory tree are left unresolved
 
-## Watch Behavior
-
-To disable file watching:
-
-```bash
-yom /path/to/docs --no-watch
-```
-
-To force the `watchdog` backend:
-
-```bash
-yom /path/to/docs --watch-mode watchdog
-```
-
-To disable automatic browser opening:
-
-```bash
-yom /path/to/docs --no-open
-```
-
 ## Development
 
-For local development with the repository checked out:
+Install dependencies:
 
 ```bash
-uv sync --group dev
 bun install
-make test
-make ci-check
-make web-check
-make web-build
 ```
 
-The Bun / Vite migration scaffold now lives alongside the Python server. The primary
-Node-side workflow is:
+Run the main checks:
 
 ```bash
-bun run dev
-bun run build
-bun run preview
+bun run check
+bun run format
 bun run test
+bun run build
 ```
 
-You can also invoke the Node CLI directly:
+You can also use the helper script:
 
 ```bash
-bun run ./src/cli/index.ts dev --root .
-bun run ./src/cli/index.ts build --root . --out-dir dist
+./scripts/check.sh
 ```
 
-`bun run build` now generates static document pages into `dist/docs/`, copies non-Markdown
-assets into `dist/assets/`, and writes `dist/tree.json`.
-
-`bun run dev` now serves:
-
-- `/api/tree`: scanned Markdown tree
-- `/api/doc?path=...`: rendered HTML payload for one Markdown file
-- `/assets/...`: local referenced assets
-
-and the browser UI renders a sidebar tree with in-app document navigation.
+Frontend files live in [src/site](/Users/kh03/work/repos/yom/src/site). The CLI entrypoint is
+[src/cli/index.ts](/Users/kh03/work/repos/yom/src/cli/index.ts).
 
 Equivalent npm scripts remain available for compatibility:
 
 ```bash
-npm run dev
-npm run build
+npm run dev -- --root .
+npm run build -- --root . --out-dir dist
 npm run preview
 npm run test
 ```
 
 The Japanese translation is available at [README.ja.md](README.ja.md).
 
-## Alpha Publish
+## Publishing
 
-The Bun CLI can be installed locally from this repository with:
+Install the CLI locally from this repository:
 
 ```bash
 bun install
 bun link
 ```
 
-This exposes:
-
-```bash
-yom-next dev --root .
-yom-next build --root . --out-dir dist
-```
-
-To verify the npm package contents before publishing:
+Check the package contents:
 
 ```bash
 npm pack
 ```
 
-To publish an alpha release:
+Dry-run a publish:
 
 ```bash
-npm publish --tag alpha
+bun run dryrun-publish
 ```
 
-This package currently expects `bun` to be available at runtime.
+Publish an alpha release:
+
+```bash
+bun publish --tag alpha --access public
+```
+
+This package expects `bun` to be available at runtime.
