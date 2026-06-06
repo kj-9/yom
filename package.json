@@ -23,7 +23,7 @@
     "preview": "bun run ./src/cli/index.ts preview",
     "test": "vitest run",
     "check": "tsc --noEmit",
-    "dryrun-publish": "bun publish --tag alpha --dryrun  --access public",
+    "publish-alpha": "bun publish --tag alpha --access public",
     "format": "prettier --check \"bin/yom-next\" \"index.html\" \"src/**/*.{ts,css}\" \"tests/**/*.ts\""
   },
   "devDependencies": {
