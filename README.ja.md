@@ -19,6 +19,7 @@
 ```bash
 cd ~/work/repos/yom
 uv sync
+bun install
 ```
 
 開発時の最低限の確認:
@@ -28,23 +29,47 @@ cd ~/work/repos/yom
 ./scripts/check.sh
 ```
 
+Node 側の最小スキャフォールド確認:
+
+```bash
+cd ~/work/repos/yom
+bun run check
+bun run build
+bun run test
+```
+
 個別に整形と lint を回す場合:
 
 ```bash
 cd ~/work/repos/yom
 uv run ruff check .
 uv run ruff format --check .
-XDG_CACHE_HOME="$PWD/.cache" pnpx prettier@3 --check "src/yom/assets/*.{html,css,js}"
+bunx prettier --check "src/yom/assets/*.{html,css,js}"
 ```
 
 フロントエンド資産を整形する場合:
 
 ```bash
 cd ~/work/repos/yom
-XDG_CACHE_HOME="$PWD/.cache" pnpx prettier@3 --write "src/yom/assets/*.{html,css,js}"
+bunx prettier --write "src/yom/assets/*.{html,css,js}"
 ```
 
-UI テンプレートは [src/yom/assets](src/yom/assets) に分離してあり、見た目やクライアント側挙動を調整したいときはここを編集します。
+UI テンプレートは [src/yom/assets](src/yom/assets) に分離してあり、見た目やクライアント側挙動を調整したいときはここを編集します。移行中の Bun / Vite 側エントリは [src/site](src/site) に追加してあります。
+
+Bun 主導の開発サーバーを試す場合:
+
+```bash
+cd ~/work/repos/yom
+bun run dev
+```
+
+ビルドとプレビュー:
+
+```bash
+cd ~/work/repos/yom
+bun run build
+bun run preview
+```
 
 ## 使い方
 

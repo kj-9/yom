@@ -10,5 +10,4 @@ node_modules/
 .pnpm-store/
 .cache/
 .playwright-cli/
-
-node_modules/
+dist/

@@ -133,8 +133,30 @@ For local development with the repository checked out:
 
 ```bash
 uv sync --group dev
+bun install
 make test
 make ci-check
+make web-check
+make web-build
+```
+
+The Bun / Vite migration scaffold now lives alongside the Python server. The primary
+Node-side workflow is:
+
+```bash
+bun run dev
+bun run build
+bun run preview
+bun run test
+```
+
+Equivalent npm scripts remain available for compatibility:
+
+```bash
+npm run dev
+npm run build
+npm run preview
+npm run test
 ```
 
 The Japanese translation is available at [README.ja.md](README.ja.md).
