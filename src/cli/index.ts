@@ -2,12 +2,13 @@ import path from "node:path";
 import process from "node:process";
 import { spawn } from "node:child_process";
 
+import { cac } from "cac";
+
 import { buildStaticSite } from "./build";
 
 type Command = "dev" | "build" | "preview";
-const HELP_FLAGS = new Set(["-h", "--help"]);
 
-type CliOptions = {
+export type CliOptions = {
   command: Command;
   root: string;
   outDir: string;
@@ -15,14 +16,66 @@ type CliOptions = {
   port: number;
 };
 
+const cli = cac("yom-next");
+
+cli
+  .command("dev", "Run the Vite development server")
+  .option("--root <path>", "Root directory to serve", { default: "." })
+  .option("--host <host>", "Host to bind the dev server", {
+    default: "127.0.0.1",
+  })
+  .option("--port <port>", "Port to bind the dev server", {
+    default: 4173,
+  })
+  .action(async (options) => {
+    await run({
+      command: "dev",
+      root: options.root,
+      outDir: "dist",
+      host: options.host,
+      port: Number(options.port),
+    });
+  });
+
+cli
+  .command("build", "Build the static site into the output directory")
+  .option("--root <path>", "Root directory to build", { default: "." })
+  .option("--out-dir <path>", "Output directory for build artifacts", {
+    default: "dist",
+  })
+  .action(async (options) => {
+    await run({
+      command: "build",
+      root: options.root,
+      outDir: options.outDir,
+      host: "127.0.0.1",
+      port: 4173,
+    });
+  });
+
+cli
+  .command("preview", "Preview the built site with Vite")
+  .option("--host <host>", "Host to bind the preview server", {
+    default: "127.0.0.1",
+  })
+  .option("--port <port>", "Port to bind the preview server", {
+    default: 4173,
+  })
+  .action(async (options) => {
+    await run({
+      command: "preview",
+      root: ".",
+      outDir: "dist",
+      host: options.host,
+      port: Number(options.port),
+    });
+  });
+
+cli.help();
+cli.version("0.1.0-alpha.0");
+
 if (import.meta.main) {
-  const argv = process.argv.slice(2);
-  if (argv.some((token) => HELP_FLAGS.has(token))) {
-    printHelp();
-  } else {
-    const options = parseArgs(argv);
-    await run(options);
-  }
+  await cli.parse(process.argv, { run: true });
 }
 
 export async function run(options: CliOptions): Promise<void> {
@@ -58,51 +111,62 @@ export async function run(options: CliOptions): Promise<void> {
 }
 
 export function parseArgs(argv: string[]): CliOptions {
-  const [commandToken = "dev", ...rest] = argv;
-  if (!isCommand(commandToken)) {
-    throw new Error(`Unsupported command: ${commandToken}`);
+  const [command = "dev", ...rest] = argv;
+  if (command === "dev") {
+    const options = parseNamedOptions(rest);
+    return {
+      command,
+      root: String(options.root ?? "."),
+      outDir: "dist",
+      host: String(options.host ?? "127.0.0.1"),
+      port: Number(options.port ?? 4173),
+    };
   }
 
-  const options: CliOptions = {
-    command: commandToken,
-    root: ".",
-    outDir: "dist",
-    host: "127.0.0.1",
-    port: 4173,
-  };
-
-  for (let index = 0; index < rest.length; index += 1) {
-    const token = rest[index];
-    const value = rest[index + 1];
-
-    if (token === "--root" && value !== undefined) {
-      options.root = value;
-      index += 1;
-      continue;
-    }
-
-    if (token === "--out-dir" && value !== undefined) {
-      options.outDir = value;
-      index += 1;
-      continue;
-    }
-
-    if (token === "--host" && value !== undefined) {
-      options.host = value;
-      index += 1;
-      continue;
-    }
-
-    if (token === "--port" && value !== undefined) {
-      options.port = Number.parseInt(value, 10);
-      index += 1;
-      continue;
-    }
-
-    throw new Error(`Unsupported option: ${token}`);
+  if (command === "build") {
+    const options = parseNamedOptions(rest);
+    return {
+      command,
+      root: String(options.root ?? "."),
+      outDir: String(options.outDir ?? "dist"),
+      host: String(options.host ?? "127.0.0.1"),
+      port: Number(options.port ?? 4173),
+    };
   }
 
-  return options;
+  if (command === "preview") {
+    const options = parseNamedOptions(rest);
+    return {
+      command,
+      root: ".",
+      outDir: "dist",
+      host: String(options.host ?? "127.0.0.1"),
+      port: Number(options.port ?? 4173),
+    };
+  }
+
+  throw new Error(`Unsupported command: ${command}`);
+}
+
+function parseNamedOptions(argv: string[]): Record<string, string | number> {
+  const parsed: Record<string, string | number> = {};
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+    const value = argv[index + 1];
+
+    if (!token.startsWith("--") || value === undefined || value.startsWith("--")) {
+      throw new Error(`Unsupported option: ${token}`);
+    }
+
+    const key = token.slice(2).replace(/-([a-z])/g, (_, letter: string) =>
+      letter.toUpperCase(),
+    );
+    parsed[key] = value;
+    index += 1;
+  }
+
+  return parsed;
 }
 
 async function spawnBun(args: string[]): Promise<void> {
@@ -124,24 +188,4 @@ async function spawnBun(args: string[]): Promise<void> {
       );
     });
   });
-}
-
-function isCommand(value: string): value is Command {
-  return value === "dev" || value === "build" || value === "preview";
-}
-
-function printHelp(): void {
-  console.log(`Usage: yom-next <command> [options]
-
-Commands:
-  dev      Run the Vite development server
-  build    Build the static site into the output directory
-  preview  Preview the built site with Vite
-
-Options:
-  --root <path>     Root directory to serve or build (default: .)
-  --out-dir <path>  Output directory for build (default: dist)
-  --host <host>     Host to bind the dev/preview server (default: 127.0.0.1)
-  --port <port>     Port to bind the dev/preview server (default: 4173)
-  -h, --help        Show this help message`);
 }
