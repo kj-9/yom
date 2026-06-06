@@ -150,6 +150,24 @@ bun run preview
 bun run test
 ```
 
+You can also invoke the Node CLI directly:
+
+```bash
+bun run ./src/cli/index.ts dev --root .
+bun run ./src/cli/index.ts build --root . --out-dir dist
+```
+
+`bun run build` now generates static document pages into `dist/docs/`, copies non-Markdown
+assets into `dist/assets/`, and writes `dist/tree.json`.
+
+`bun run dev` now serves:
+
+- `/api/tree`: scanned Markdown tree
+- `/api/doc?path=...`: rendered HTML payload for one Markdown file
+- `/assets/...`: local referenced assets
+
+and the browser UI renders a sidebar tree with in-app document navigation.
+
 Equivalent npm scripts remain available for compatibility:
 
 ```bash

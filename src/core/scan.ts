@@ -173,6 +173,23 @@ export async function scanMarkdownMtimes(
   return snapshot;
 }
 
+export async function listExistingPaths(root: string): Promise<Set<string>> {
+  const resolvedRoot = path.resolve(root);
+  const ignoredPaths = await gitignoredPaths(resolvedRoot);
+  const collected = await collectExistingPaths(
+    resolvedRoot,
+    resolvedRoot,
+    ignoredPaths,
+  );
+  return new Set(collected);
+}
+
+export async function listAssetFiles(root: string): Promise<string[]> {
+  const resolvedRoot = path.resolve(root);
+  const ignoredPaths = await gitignoredPaths(resolvedRoot);
+  return collectAssetFiles(resolvedRoot, resolvedRoot, ignoredPaths);
+}
+
 async function collectMarkdownFiles(
   current: string,
   base: string,
@@ -204,4 +221,75 @@ async function collectMarkdownFiles(
 
 function toPosixPath(value: string): string {
   return value.split(path.sep).join(path.posix.sep);
+}
+
+async function collectExistingPaths(
+  current: string,
+  base: string,
+  ignoredPaths: Set<string>,
+): Promise<string[]> {
+  const entries = await readdir(current, { withFileTypes: true });
+  const collected: string[] = [];
+
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) {
+      continue;
+    }
+
+    const absolutePath = path.join(current, entry.name);
+    const relativePath = toPosixPath(path.relative(base, absolutePath));
+    if (ignoredPaths.has(relativePath)) {
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      collected.push(
+        ...(await collectExistingPaths(absolutePath, base, ignoredPaths)),
+      );
+      continue;
+    }
+
+    if (entry.isFile()) {
+      collected.push(relativePath);
+    }
+  }
+
+  return collected;
+}
+
+async function collectAssetFiles(
+  current: string,
+  base: string,
+  ignoredPaths: Set<string>,
+): Promise<string[]> {
+  const entries = await readdir(current, { withFileTypes: true });
+  const collected: string[] = [];
+
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) {
+      continue;
+    }
+
+    const absolutePath = path.join(current, entry.name);
+    const relativePath = toPosixPath(path.relative(base, absolutePath));
+    if (ignoredPaths.has(relativePath)) {
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      collected.push(
+        ...(await collectAssetFiles(absolutePath, base, ignoredPaths)),
+      );
+      continue;
+    }
+
+    if (entry.isFile() && path.extname(entry.name).toLowerCase() !== ".md") {
+      collected.push(relativePath);
+    }
+  }
+
+  collected.sort((left, right) =>
+    left.localeCompare(right, undefined, { sensitivity: "base" }),
+  );
+  return collected;
 }

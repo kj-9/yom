@@ -3,16 +3,21 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "bin": {
+    "yom-next": "./src/cli/index.ts"
+  },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview",
+    "dev": "bun run ./src/cli/index.ts dev",
+    "build": "tsc --noEmit && vite build && bun run ./src/cli/index.ts build",
+    "preview": "bun run ./src/cli/index.ts preview",
     "test": "vitest run",
     "check": "tsc --noEmit",
     "format": "prettier --check \"index.html\" \"src/**/*.{ts,css}\" \"tests/**/*.ts\""
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
+    "@types/markdown-it": "^14.1.2",
+    "markdown-it": "^14.1.0",
     "prettier": "^3.6.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.3",

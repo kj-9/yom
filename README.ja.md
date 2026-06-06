@@ -38,6 +38,25 @@ bun run build
 bun run test
 ```
 
+Node CLI を直接呼ぶこともできます:
+
+```bash
+cd ~/work/repos/yom
+bun run ./src/cli/index.ts dev --root .
+bun run ./src/cli/index.ts build --root . --out-dir dist
+```
+
+`bun run build` は `dist/docs/` に HTML を出力し、非 Markdown 資産を
+`dist/assets/` にコピーして、`dist/tree.json` も生成します。
+
+`bun run dev` では以下を配信します。
+
+- `/api/tree`: Markdown ツリー
+- `/api/doc?path=...`: 1 ドキュメント分の HTML ペイロード
+- `/assets/...`: 参照されたローカル資産
+
+ブラウザ UI ではサイドバーのツリー表示と文書内遷移も動きます。
+
 個別に整形と lint を回す場合:
 
 ```bash
