@@ -4,9 +4,9 @@ import { isDirectExecution, parseArgs } from "../../src/cli/index";
 
 describe("isDirectExecution", () => {
   it("treats bun-run ts entrypoints as direct execution", () => {
-    expect(
-      isDirectExecution(["bun", "/repo/src/cli/index.ts", "dev"]),
-    ).toBe(true);
+    expect(isDirectExecution(["bun", "/repo/src/cli/index.ts", "dev"])).toBe(
+      true,
+    );
   });
 
   it("ignores wrapper binary execution", () => {
@@ -16,9 +16,9 @@ describe("isDirectExecution", () => {
   });
 
   it("ignores imported module execution", () => {
-    expect(isDirectExecution(["vitest", "/repo/tests/unit/cli-node.test.ts"])).toBe(
-      false,
-    );
+    expect(
+      isDirectExecution(["vitest", "/repo/tests/unit/cli-node.test.ts"]),
+    ).toBe(false);
   });
 });
 

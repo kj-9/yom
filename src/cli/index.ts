@@ -92,16 +92,12 @@ export async function run(options: CliOptions): Promise<void> {
   }
 
   if (options.command === "dev") {
-    await spawnBun([
-      "x",
-      "vite",
-      "--host",
-      options.host,
-      "--port",
-      String(options.port),
-    ], {
-      YOM_ROOT: path.resolve(options.root),
-    });
+    await spawnBun(
+      ["x", "vite", "--host", options.host, "--port", String(options.port)],
+      {
+        YOM_ROOT: path.resolve(options.root),
+      },
+    );
     return;
   }
 
@@ -161,13 +157,17 @@ function parseNamedOptions(argv: string[]): Record<string, string | number> {
     const token = argv[index];
     const value = argv[index + 1];
 
-    if (!token.startsWith("--") || value === undefined || value.startsWith("--")) {
+    if (
+      !token.startsWith("--") ||
+      value === undefined ||
+      value.startsWith("--")
+    ) {
       throw new Error(`Unsupported option: ${token}`);
     }
 
-    const key = token.slice(2).replace(/-([a-z])/g, (_, letter: string) =>
-      letter.toUpperCase(),
-    );
+    const key = token
+      .slice(2)
+      .replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
     parsed[key] = value;
     index += 1;
   }
