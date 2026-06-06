@@ -1,6 +1,6 @@
 {
   "name": "@kj-9/yom",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "Markdown tree viewer and static site builder",
   "license": "MIT",
   "type": "module",
