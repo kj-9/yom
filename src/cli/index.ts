@@ -75,7 +75,11 @@ cli.help();
 cli.version("0.1.0-alpha.0");
 
 if (import.meta.main) {
-  await cli.parse(process.argv, { run: true });
+  await main(process.argv.slice(2));
+}
+
+export async function main(argv: string[]): Promise<void> {
+  await cli.parse(["yom-next", ...argv], { run: true });
 }
 
 export async function run(options: CliOptions): Promise<void> {
