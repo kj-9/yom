@@ -4,6 +4,7 @@ import argparse
 import errno
 from pathlib import Path
 
+from yom import __version__
 from yom.server import DEFAULT_MARKDOWN_EXTENSIONS, serve
 
 
@@ -11,6 +12,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="yom",
         description="Serve a Markdown file tree as a local website.",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
     )
     parser.add_argument(
         "root",

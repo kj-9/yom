@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 import yom.cli as cli
+from yom import __version__
 from yom.cli import build_parser
 
 
@@ -55,6 +56,16 @@ def test_parser_supports_watch_mode() -> None:
     args = parser.parse_args(["docs", "--watch-mode", "poll"])
 
     assert args.watch_mode == "poll"
+
+
+def test_parser_supports_version(capsys: pytest.CaptureFixture[str]) -> None:
+    parser = build_parser()
+
+    with pytest.raises(SystemExit) as excinfo:
+        parser.parse_args(["--version"])
+
+    assert excinfo.value.code == 0
+    assert capsys.readouterr().out == f"yom {__version__}\n"
 
 
 def test_main_shows_helpful_message_when_port_is_in_use(
