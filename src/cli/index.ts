@@ -181,7 +181,7 @@ export function isDirectExecution(argv: string[]): boolean {
     return false;
   }
 
-  return /(?:^|\/)(?:index\.ts|yom-next)$/u.test(entrypoint);
+  return /(?:^|\/)index\.ts$/u.test(entrypoint);
 }
 
 async function spawnBun(
