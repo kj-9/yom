@@ -1,6 +1,6 @@
+import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
-import { spawn } from "node:child_process";
 
 import { cac } from "cac";
 
@@ -74,12 +74,12 @@ cli
 cli.help();
 cli.version("0.1.0-alpha.0");
 
-if (import.meta.main) {
+if (isDirectExecution(process.argv)) {
   await main(process.argv.slice(2));
 }
 
 export async function main(argv: string[]): Promise<void> {
-  await cli.parse(["yom-next", ...argv], { run: true });
+  await cli.parse(["bun", "yom-next", ...argv], { run: true });
 }
 
 export async function run(options: CliOptions): Promise<void> {
@@ -99,7 +99,9 @@ export async function run(options: CliOptions): Promise<void> {
       options.host,
       "--port",
       String(options.port),
-    ]);
+    ], {
+      YOM_ROOT: path.resolve(options.root),
+    });
     return;
   }
 
@@ -173,9 +175,25 @@ function parseNamedOptions(argv: string[]): Record<string, string | number> {
   return parsed;
 }
 
-async function spawnBun(args: string[]): Promise<void> {
+export function isDirectExecution(argv: string[]): boolean {
+  const entrypoint = argv[1];
+  if (!entrypoint) {
+    return false;
+  }
+
+  return /(?:^|\/)(?:index\.ts|yom-next)$/u.test(entrypoint);
+}
+
+async function spawnBun(
+  args: string[],
+  envOverrides: NodeJS.ProcessEnv = {},
+): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn("bun", args, {
+      env: {
+        ...process.env,
+        ...envOverrides,
+      },
       stdio: "inherit",
     });
 

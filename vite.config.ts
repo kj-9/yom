@@ -9,7 +9,10 @@ export default defineConfig({
     {
       name: "yom-dev-api",
       configureServer(server) {
-        server.middlewares.use(createYomDevMiddleware(path.resolve(".")));
+        const root = process.env.YOM_ROOT
+          ? path.resolve(process.env.YOM_ROOT)
+          : path.resolve(".");
+        server.middlewares.use(createYomDevMiddleware(root));
       },
     },
   ],
