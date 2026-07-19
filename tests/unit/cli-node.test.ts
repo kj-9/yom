@@ -10,9 +10,7 @@ describe("isDirectExecution", () => {
   });
 
   it("ignores wrapper binary execution", () => {
-    expect(isDirectExecution(["node", "/repo/bin/yom", "dev"])).toBe(
-      false,
-    );
+    expect(isDirectExecution(["node", "/repo/bin/yom", "dev"])).toBe(false);
   });
 
   it("ignores imported module execution", () => {

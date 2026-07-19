@@ -9,7 +9,9 @@
   },
   "files": [
     "bin",
+    "index.html",
     "src",
+    "vite.config.ts",
     "README.md",
     "README.ja.md",
     "LICENSE"

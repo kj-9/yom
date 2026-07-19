@@ -1,10 +1,18 @@
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
 import process from "node:process";
 
 import { cac } from "cac";
 
+import packageJson from "../../package.json" with { type: "json" };
 import { buildStaticSite } from "./build";
+
+const packageRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
+const viteConfigPath = path.join(packageRoot, "vite.config.ts");
 
 type Command = "dev" | "build" | "preview";
 
@@ -72,7 +80,7 @@ cli
   });
 
 cli.help();
-cli.version("0.1.0-alpha.0");
+cli.version(packageJson.version);
 
 if (isDirectExecution(process.argv)) {
   await main(process.argv.slice(2));
@@ -93,23 +101,41 @@ export async function run(options: CliOptions): Promise<void> {
 
   if (options.command === "dev") {
     await spawnBun(
-      ["x", "vite", "--host", options.host, "--port", String(options.port)],
+      [
+        "x",
+        "vite",
+        "--config",
+        viteConfigPath,
+        "--host",
+        options.host,
+        "--port",
+        String(options.port),
+      ],
       {
-        YOM_ROOT: path.resolve(options.root),
+        env: {
+          YOM_ROOT: path.resolve(options.root),
+        },
       },
     );
     return;
   }
 
-  await spawnBun([
-    "x",
-    "vite",
-    "preview",
-    "--host",
-    options.host,
-    "--port",
-    String(options.port),
-  ]);
+  await spawnBun(
+    [
+      "x",
+      "vite",
+      "preview",
+      "--config",
+      viteConfigPath,
+      "--host",
+      options.host,
+      "--port",
+      String(options.port),
+    ],
+    {
+      cwd: process.cwd(),
+    },
+  );
 }
 
 export function parseArgs(argv: string[]): CliOptions {
@@ -186,13 +212,17 @@ export function isDirectExecution(argv: string[]): boolean {
 
 async function spawnBun(
   args: string[],
-  envOverrides: NodeJS.ProcessEnv = {},
+  options: {
+    cwd?: string;
+    env?: NodeJS.ProcessEnv;
+  } = {},
 ): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn("bun", args, {
+      cwd: options.cwd ?? packageRoot,
       env: {
         ...process.env,
-        ...envOverrides,
+        ...options.env,
       },
       stdio: "inherit",
     });
