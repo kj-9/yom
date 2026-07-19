@@ -32,6 +32,9 @@ describe("buildStaticSite", () => {
 
     await expect(
       readFile(path.join(outDir, "docs/guide.html"), "utf-8"),
+    ).resolves.toContain('<html lang="und">');
+    await expect(
+      readFile(path.join(outDir, "docs/guide.html"), "utf-8"),
     ).resolves.toContain('href="/docs/docs/page.html"');
     await expect(
       readFile(path.join(outDir, "docs/guide.html"), "utf-8"),
@@ -47,6 +50,9 @@ describe("buildStaticSite", () => {
     await expect(
       readFile(path.join(outDir, "assets/images/map.png"), "utf-8"),
     ).resolves.toBe("png");
+    await expect(
+      readFile(path.join(outDir, "index.html"), "utf-8"),
+    ).resolves.toContain('<html lang="und">');
     await expect(
       readFile(path.join(outDir, "index.html"), "utf-8"),
     ).resolves.toContain("/docs/docs/page.html");

@@ -21,7 +21,7 @@ describe("loadDocument", () => {
     await write(
       root,
       "docs/page.md",
-      "# Page\n\n[Guide](../guide.md)\n\n![img](image.png)",
+      "# Page\n\nThis page explains how the local document viewer handles links and assets.\n\n[Guide](../guide.md)\n\n![img](image.png)",
     );
     await write(root, "guide.md", "# Guide");
     await write(root, "docs/image.png", "png");

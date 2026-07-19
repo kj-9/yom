@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
-import { scanMarkdownMtimes } from "../core/scan";
 
 import type { Connect } from "vite";
 
@@ -11,8 +10,11 @@ import {
   resolveAssetPath,
 } from "../core/content";
 
+export type DevEventSubscription = (listener: () => void) => () => void;
+
 export function createYomDevMiddleware(
   root: string,
+  options: { subscribe?: DevEventSubscription } = {},
 ): Connect.NextHandleFunction {
   const resolvedRoot = path.resolve(root);
 
@@ -51,7 +53,7 @@ export function createYomDevMiddleware(
       }
 
       if (requestUrl.pathname === "/events") {
-        return sendEvents(resolvedRoot, res);
+        return sendEvents(res, options.subscribe);
       }
     } catch (error) {
       return sendError(res, error);
@@ -61,34 +63,25 @@ export function createYomDevMiddleware(
   };
 }
 
-async function sendEvents(
-  root: string,
+function sendEvents(
   res: ServerResponse<IncomingMessage>,
-): Promise<void> {
+  subscribe: DevEventSubscription | undefined,
+): void {
   res.statusCode = 200;
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.write("retry: 1000\n\n");
 
-  let lastSnapshot = JSON.stringify(await scanMarkdownMtimes(root));
-  const timer = setInterval(async () => {
-    try {
-      const nextSnapshot = JSON.stringify(await scanMarkdownMtimes(root));
-      if (nextSnapshot === lastSnapshot) {
-        return;
-      }
-      lastSnapshot = nextSnapshot;
+  const unsubscribe =
+    subscribe?.(() => {
       res.write(
         `data: ${JSON.stringify({ version: Date.now(), timestamp: Date.now() / 1000 })}\n\n`,
       );
-    } catch {
-      // Ignore transient scan errors during polling.
-    }
-  }, 1000);
+    }) ?? (() => {});
 
   res.on("close", () => {
-    clearInterval(timer);
+    unsubscribe();
   });
 }
 

@@ -8,7 +8,7 @@ export function renderStaticDocumentPage(options: {
   activePath: string;
 }): string {
   return `<!doctype html>
-<html lang="ja">
+<html lang="und">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -41,7 +41,7 @@ export function renderStaticIndexPage(firstPath: string | null): string {
     firstPath === null ? "/docs/" : docRouteFromRelativePath(firstPath);
 
   return `<!doctype html>
-<html lang="ja">
+<html lang="und">
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="refresh" content="0; url=${target}" />

@@ -78,10 +78,6 @@ async function bootstrap(): Promise<void> {
     }
   });
 
-  window.setInterval(() => {
-    void refreshContent();
-  }, 2000);
-
   const events = new EventSource("/events");
   events.onmessage = async (event) => {
     const payload = JSON.parse(event.data) as { timestamp: number };
@@ -273,9 +269,20 @@ async function openDocument(
   }
 
   const payload = (await response.json()) as DocumentPayload;
+  const unchanged =
+    options?.silent === true &&
+    state.currentPath === payload.path &&
+    state.currentHtml === payload.html &&
+    state.currentRaw === payload.raw;
+
   state.currentPath = payload.path;
   state.currentHtml = payload.html;
   state.currentRaw = payload.raw;
+
+  if (unchanged) {
+    return;
+  }
+
   renderCurrentDocument(payload.path);
   setStatus(payload.path);
 
