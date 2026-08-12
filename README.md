@@ -13,6 +13,11 @@ with live reload.
 - Resolves relative links and image paths inside Markdown
 - Watches for file changes and updates the browser automatically
 - Builds a static site from the same content tree
+- Searches file names, titles, and Markdown body text
+- Shows a scroll-aware heading outline and previous/next navigation
+- Reads simple front matter for page titles and metadata
+- Provides heading-link and code-block copy actions
+- Supports keyboard navigation and print-friendly output
 
 ## Quick Start
 
@@ -54,11 +59,11 @@ yom dev --root /path/to/docs --host 127.0.0.1 --port 4173
 ```
 
 ```bash
-yom build --root /path/to/docs --out-dir dist
+yom build --root /path/to/docs --out-dir dist --base /
 ```
 
 ```bash
-yom preview --host 127.0.0.1 --port 4173
+yom preview --host 127.0.0.1 --port 4173 --base / --out-dir dist
 ```
 
 Options available through `yom --help`:
@@ -70,9 +75,41 @@ Options available through `yom --help`:
 - `--out-dir`: output directory for build artifacts
 - `--host`: bind host for dev or preview
 - `--port`: bind port for dev or preview
+- `--base`: public base path used by build and preview
+- `--config`: explicit path to `yom.config.ts`
+- `--open`: open the browser when dev starts
 
-`bun run build` generates static document pages into `dist/docs/`, copies non-Markdown
-assets into `dist/assets/`, and writes `dist/tree.json`.
+## Configuration
+
+Place `yom.config.ts` in the caller directory or the Markdown root. CLI options
+override the corresponding configuration values.
+
+```ts
+import { defineConfig } from "@kj-9/yom";
+
+export default defineConfig({
+  title: "Project docs",
+  lang: "ja",
+  include: ["README.md", "docs/**/*.md"],
+  exclude: ["docs/drafts/**"],
+  initialPage: "README.md",
+  order: ["README.md", "docs"],
+  base: "/project/",
+  theme: "system",
+  palette: "paper",
+  outDir: "dist",
+  open: false,
+});
+```
+
+Without a config file, the document language remains `und`; yom does not infer a
+language from Markdown body text. Invalid or unknown configuration values stop the
+command with an explanatory error.
+
+`bun run build` bundles the same browser app used by dev, writes rendered document data
+to `dist/data/`, creates direct route shells in `dist/docs/`, copies referenced files to
+`dist/assets/`, and writes `dist/tree.json` and `dist/404.html`. Use `--base /project/`
+when the site is hosted below a subpath such as GitHub Pages.
 
 `bun run dev` serves:
 
@@ -86,12 +123,23 @@ assets into `dist/assets/`, and writes `dist/tree.json`.
 - Image paths such as `./image.png` are served as local assets
 - References that point outside the scanned directory tree are left unresolved
 
+## Reading controls
+
+- Press `/` to focus full-text search
+- Press `[` or `]` to open the previous or next document
+- Press `Escape` to leave a search or form control
+- Use the `#` action beside a heading to copy its URL
+- Use the copy action on fenced code blocks to copy their contents
+- Front matter supports simple scalar values and inline arrays such as
+  `tags: [one, two]`
+
 ## Development
 
 Install dependencies:
 
 ```bash
 bun install
+bunx playwright install chromium chromium-headless-shell
 ```
 
 Run the main checks:
@@ -100,6 +148,8 @@ Run the main checks:
 bun run check
 bun run format
 bun run test
+bun run test:e2e
+bun run benchmark
 bun run build
 ```
 
@@ -109,8 +159,9 @@ You can also use the helper script:
 ./scripts/check.sh
 ```
 
-Frontend files live in [src/site](/Users/kh03/work/repos/yom/src/site). The CLI entrypoint is
-[src/cli/index.ts](/Users/kh03/work/repos/yom/src/cli/index.ts).
+Frontend files live in [src/site](src/site). The CLI entrypoint is
+[src/cli/index.ts](src/cli/index.ts). Planned work is tracked in
+[ROADMAP.md](ROADMAP.md).
 
 Equivalent npm scripts remain available for compatibility:
 
@@ -138,10 +189,10 @@ Check the package contents:
 npm pack
 ```
 
-Dry-run a publish:
+Inspect the files that would be packed without creating a tarball:
 
 ```bash
-bun run dryrun-publish
+npm pack --dry-run
 ```
 
 Publish an alpha release:
@@ -149,5 +200,8 @@ Publish an alpha release:
 ```bash
 bun publish --tag alpha --access public
 ```
+
+Use the corresponding `beta` tag for beta versions and `latest` for stable versions.
+GitHub releases select this tag automatically from the version in `package.json`.
 
 This package expects `bun` to be available at runtime.

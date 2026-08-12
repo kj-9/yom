@@ -29,7 +29,7 @@ describe("loadDocument", () => {
     await expect(loadDocument(root, "docs/page.md")).resolves.toMatchObject({
       path: "docs/page.md",
       raw: expect.stringContaining("# Page"),
-      html: expect.stringContaining('href="/docs/guide.html"'),
+      html: expect.stringContaining('href="/?path=guide.md"'),
     });
     await expect(loadDocument(root, "docs/page.md")).resolves.toMatchObject({
       html: expect.stringContaining('src="/assets/docs/image.png"'),

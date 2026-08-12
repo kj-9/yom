@@ -40,6 +40,10 @@ describe("Vite cwd isolation", () => {
       path.join(callerRoot, "vite.config.ts"),
       'throw new Error("caller vite config must not be loaded");\n',
     );
+    await writeFile(
+      path.join(callerRoot, "yom.config.ts"),
+      'export default { title: "Caller docs", lang: "ja" };\n',
+    );
 
     const repoRoot = path.resolve(process.cwd());
     const port = await findOpenPort();
@@ -67,9 +71,13 @@ describe("Vite cwd isolation", () => {
     children.push(child);
 
     const output = await waitForDevServer(child);
+    const response = await fetch(`http://127.0.0.1:${port}/`);
+    const html = await response.text();
 
     expect(output).toContain(`http://127.0.0.1:${port}/`);
     expect(output).not.toContain("caller vite config must not be loaded");
+    expect(html).toContain('<html lang="ja">');
+    expect(html).toContain("<title>Caller docs</title>");
   }, 15_000);
 
   it("previews the caller project's dist without loading its Vite config", async () => {

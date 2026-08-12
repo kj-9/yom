@@ -1,22 +1,66 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-Core Python code lives in `src/yom/`. Use `cli.py` for argument parsing and startup flow, and `server.py` for indexing, Markdown rendering, file watching, and HTTP handling. Browser assets are kept in `src/yom/assets/` (`shell.html`, `style.css`, `app.js`). Tests live in `tests/` and mirror behavior by area with `test_cli.py` and `test_server.py`. Utility checks are in `scripts/check.sh`.
+
+The CLI entrypoint and command orchestration live in `src/cli/`. Markdown scanning,
+rendering, link rewriting, routes, and static page generation live in `src/core/`.
+Development-server middleware is in `src/dev/`, while the browser application and
+styles are in `src/site/`. The executable wrapper is `bin/yom`, and Vite integration
+is configured in `vite.config.ts`.
+
+Tests live in `tests/unit/` and are grouped by behavior. Project-wide checks are
+collected in `scripts/check.sh`. Product direction and sequencing are documented in
+`ROADMAP.md`.
 
 ## Build, Test, and Development Commands
-Set up the local environment with `uv sync --group dev`. Run the app locally with `uv run yom .` or target a sample tree with `uv run yom work --no-open`. Use `make test` to run `pytest`, and `make ci-check` to run formatting, lint, and type checks together. `./scripts/check.sh` is the quickest full verification pass because it also compiles `src` and `tests` and checks frontend assets with Prettier.
+
+Install the local environment with `bun install`. Run the current directory with
+`bun run dev --root .`, generate a static site with
+`bun run build --root . --out-dir dist`, and inspect it with `bun run preview`.
+
+Use `bun run test` for Vitest, `bun run check` for TypeScript, and `bun run format`
+for Prettier verification. Install the E2E browser with
+`bunx playwright install chromium chromium-headless-shell`, then run
+`bun run test:e2e`. Use `bun run benchmark` for the guarded 100/1,000/10,000-file
+tree scenarios. Run `./scripts/check.sh` before committing; it is the canonical full
+local verification command. `bun.lock` is the canonical dependency lockfile.
 
 ## Coding Style & Naming Conventions
-Follow Python 3.11 conventions with 4-space indentation, type hints, and small focused functions. Keep module names lowercase with underscores only when needed; tests should use `test_<behavior>` names. Format Python with `uv run ruff format .`, lint with `uv run ruff check .`, and type-check with `uv run ty check`. For frontend files under `src/yom/assets/`, use Prettier-compatible formatting.
+
+Use TypeScript with strict types, small focused functions, and explicit public types
+where they clarify module boundaries. Use lower-case module names and hyphen-free
+TypeScript filenames. Tests should use behavior-focused descriptions and `*.test.ts`
+filenames. Keep browser code compatible with Prettier and avoid unnecessary DOM
+replacement during live updates.
 
 ## Testing Guidelines
-This project uses `pytest`. Add tests in `tests/test_cli.py` for CLI flags and startup behavior, and in `tests/test_server.py` for indexing, rendering, path resolution, and watcher behavior. Prefer temporary directories and explicit assertions over shared fixtures. Run `make test` during development and `./scripts/check.sh` before opening a PR.
+
+Add tests under `tests/unit/` next to the closest existing behavior area. Prefer
+temporary directories, isolated ports, and explicit assertions over shared mutable
+fixtures. CLI changes should be exercised from a caller directory outside this
+repository. Distribution-sensitive changes should eventually be tested through a
+packed and installed package, rather than only through source imports.
+
+When changing file watching or live refresh, cover add, change, remove, reconnect,
+and unchanged-content behavior as applicable. Run `./scripts/check.sh` after every
+implementation slice.
 
 ## Commit & Pull Request Guidelines
-Recent commits use short imperative subjects such as `Add settings panel for theme and palette selection` and `Fix typing for optional watchdog imports`. Keep commit messages concise, specific, and behavior-focused. PRs should include a clear summary, linked issue when applicable, and notes on user-visible changes. Include screenshots or a short screen recording for UI changes in `src/yom/assets/`.
+
+Use short imperative commit subjects such as `Use event-driven Markdown refresh in
+dev server`. Keep commits behavior-focused. Pull requests should summarize
+user-visible changes, include verification notes, and link a relevant issue when one
+exists. Include screenshots or a short recording for visible browser UI changes.
 
 ## Documentation Maintenance
-Keep `README.md` and `README.ja.md` aligned when changing usage, options, setup, or developer workflow. If one README gains new commands or behavior notes, update the other in the same change unless the difference is intentionally language-specific.
+
+Keep `README.md` and `README.ja.md` aligned when changing usage, options, setup,
+publishing, or developer workflow. Update `ROADMAP.md` when a phase is completed or
+its scope changes materially.
 
 ## Contributor Notes
-Preserve user changes already present in the worktree, especially unrelated edits such as existing `README.md` modifications.
+
+Preserve unrelated changes already present in the worktree. The CLI must work when
+invoked from another project and must not load that project's Vite configuration.
+The default document language is `und`; do not infer a language from Markdown body
+text.

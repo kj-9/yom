@@ -19,18 +19,27 @@
   "bin": {
     "yom": "./bin/yom"
   },
+  "exports": {
+    ".": "./src/core/config.ts"
+  },
   "scripts": {
     "dev": "bun run ./src/cli/index.ts dev",
-    "build": "tsc --noEmit && vite build && bun run ./src/cli/index.ts build",
+    "build": "tsc --noEmit && bun run ./src/cli/index.ts build",
+    "benchmark": "bun run ./scripts/benchmark.ts",
     "preview": "bun run ./src/cli/index.ts preview",
-    "test": "vitest run",
+    "test": "vitest run tests/unit",
+    "test:e2e": "playwright test",
+    "test:package": "vitest run tests/package",
     "check": "tsc --noEmit",
     "publish-alpha": "bun publish --tag alpha --access public",
-    "format": "prettier --check \"bin\" \"index.html\" \"src/**/*.{ts,css}\" \"tests/**/*.ts\""
+    "release": "bun run ./scripts/release.ts",
+    "format": "prettier --check \"bin\" \"index.html\" \"playwright.config.ts\" \"scripts/**/*.ts\" \"src/**/*.{ts,css}\" \"tests/**/*.ts\""
   },
   "devDependencies": {
-    "@types/node": "^24.3.0",
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1",
     "@types/markdown-it": "^14.1.2",
+    "@types/node": "^24.3.0",
     "prettier": "^3.6.0",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"

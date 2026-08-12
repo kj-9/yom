@@ -6,6 +6,7 @@ import process from "node:process";
 import { cac } from "cac";
 
 import packageJson from "../../package.json" with { type: "json" };
+import { loadYomConfig, type ResolvedYomConfig } from "../core/config";
 import { buildStaticSite } from "./build";
 
 const packageRoot = path.resolve(
@@ -22,6 +23,8 @@ export type CliOptions = {
   outDir: string;
   host: string;
   port: number;
+  basePath: string;
+  siteConfig?: ResolvedYomConfig;
 };
 
 const cli = cac("yom");
@@ -35,48 +38,36 @@ cli
   .option("--port <port>", "Port to bind the dev server", {
     default: 4173,
   })
+  .option("--config <path>", "Path to yom.config.ts")
+  .option("--open", "Open the browser after startup")
+  .option("--no-open", "Do not open the browser after startup")
   .action(async (options) => {
-    await run({
-      command: "dev",
-      root: options.root,
-      outDir: "dist",
-      host: options.host,
-      port: Number(options.port),
-    });
+    await runConfigured("dev", options);
   });
 
 cli
   .command("build", "Build the static site into the output directory")
   .option("--root <path>", "Root directory to build", { default: "." })
-  .option("--out-dir <path>", "Output directory for build artifacts", {
-    default: "dist",
-  })
+  .option("--out-dir <path>", "Output directory for build artifacts")
+  .option("--base <path>", "Base public path for the static site")
+  .option("--config <path>", "Path to yom.config.ts")
   .action(async (options) => {
-    await run({
-      command: "build",
-      root: options.root,
-      outDir: options.outDir,
-      host: "127.0.0.1",
-      port: 4173,
-    });
+    await runConfigured("build", options);
   });
 
 cli
   .command("preview", "Preview the built site with Vite")
+  .option("--base <path>", "Base public path used during build")
+  .option("--out-dir <path>", "Directory containing build artifacts")
   .option("--host <host>", "Host to bind the preview server", {
     default: "127.0.0.1",
   })
   .option("--port <port>", "Port to bind the preview server", {
     default: 4173,
   })
+  .option("--config <path>", "Path to yom.config.ts")
   .action(async (options) => {
-    await run({
-      command: "preview",
-      root: ".",
-      outDir: "dist",
-      host: options.host,
-      port: Number(options.port),
-    });
+    await runConfigured("preview", options);
   });
 
 cli.help();
@@ -95,6 +86,8 @@ export async function run(options: CliOptions): Promise<void> {
     await buildStaticSite({
       root: path.resolve(options.root),
       outDir: path.resolve(options.outDir),
+      basePath: options.basePath,
+      config: options.siteConfig,
     });
     return;
   }
@@ -110,10 +103,12 @@ export async function run(options: CliOptions): Promise<void> {
         options.host,
         "--port",
         String(options.port),
+        ...(options.siteConfig?.open ? ["--open"] : []),
       ],
       {
         env: {
           YOM_ROOT: path.resolve(options.root),
+          YOM_CONFIG: JSON.stringify(options.siteConfig),
         },
       },
     );
@@ -127,6 +122,10 @@ export async function run(options: CliOptions): Promise<void> {
       "preview",
       "--config",
       viteConfigPath,
+      "--base",
+      options.basePath,
+      "--outDir",
+      options.outDir,
       "--host",
       options.host,
       "--port",
@@ -138,67 +137,28 @@ export async function run(options: CliOptions): Promise<void> {
   );
 }
 
-export function parseArgs(argv: string[]): CliOptions {
-  const [command = "dev", ...rest] = argv;
-  if (command === "dev") {
-    const options = parseNamedOptions(rest);
-    return {
-      command,
-      root: String(options.root ?? "."),
-      outDir: "dist",
-      host: String(options.host ?? "127.0.0.1"),
-      port: Number(options.port ?? 4173),
-    };
+async function runConfigured(
+  command: Command,
+  options: Record<string, unknown>,
+): Promise<void> {
+  const root = String(options.root ?? ".");
+  const siteConfig = await loadYomConfig({
+    cwd: process.cwd(),
+    root: path.resolve(root),
+    configPath: typeof options.config === "string" ? options.config : undefined,
+  });
+  if (typeof options.open === "boolean") {
+    siteConfig.open = options.open;
   }
-
-  if (command === "build") {
-    const options = parseNamedOptions(rest);
-    return {
-      command,
-      root: String(options.root ?? "."),
-      outDir: String(options.outDir ?? "dist"),
-      host: String(options.host ?? "127.0.0.1"),
-      port: Number(options.port ?? 4173),
-    };
-  }
-
-  if (command === "preview") {
-    const options = parseNamedOptions(rest);
-    return {
-      command,
-      root: ".",
-      outDir: "dist",
-      host: String(options.host ?? "127.0.0.1"),
-      port: Number(options.port ?? 4173),
-    };
-  }
-
-  throw new Error(`Unsupported command: ${command}`);
-}
-
-function parseNamedOptions(argv: string[]): Record<string, string | number> {
-  const parsed: Record<string, string | number> = {};
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index];
-    const value = argv[index + 1];
-
-    if (
-      !token.startsWith("--") ||
-      value === undefined ||
-      value.startsWith("--")
-    ) {
-      throw new Error(`Unsupported option: ${token}`);
-    }
-
-    const key = token
-      .slice(2)
-      .replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
-    parsed[key] = value;
-    index += 1;
-  }
-
-  return parsed;
+  await run({
+    command,
+    root,
+    outDir: String(options.outDir ?? siteConfig.outDir),
+    host: String(options.host ?? "127.0.0.1"),
+    port: Number(options.port ?? 4173),
+    basePath: String(options.base ?? siteConfig.basePath),
+    siteConfig,
+  });
 }
 
 export function isDirectExecution(argv: string[]): boolean {
@@ -227,9 +187,28 @@ async function spawnBun(
       stdio: "inherit",
     });
 
-    child.on("error", reject);
-    child.on("exit", (code) => {
-      if (code === 0) {
+    let forwardedSignal = false;
+    const forwardSignal = (signal: NodeJS.Signals): void => {
+      forwardedSignal = true;
+      child.kill(signal);
+    };
+    const forwardInterrupt = (): void => forwardSignal("SIGINT");
+    const forwardTermination = (): void => forwardSignal("SIGTERM");
+    process.once("SIGINT", forwardInterrupt);
+    process.once("SIGTERM", forwardTermination);
+
+    const cleanup = (): void => {
+      process.off("SIGINT", forwardInterrupt);
+      process.off("SIGTERM", forwardTermination);
+    };
+
+    child.on("error", (error) => {
+      cleanup();
+      reject(error);
+    });
+    child.on("exit", (code, signal) => {
+      cleanup();
+      if (code === 0 || (forwardedSignal && signal !== null)) {
         resolve();
         return;
       }

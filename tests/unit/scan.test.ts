@@ -6,7 +6,7 @@ import { rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { buildSiteIndex, scanMarkdownMtimes } from "../../src/core/scan";
+import { buildSiteIndex } from "../../src/core/scan";
 
 const tempRoots: string[] = [];
 
@@ -83,35 +83,37 @@ describe("buildSiteIndex", () => {
       },
     });
   });
-});
 
-describe("scanMarkdownMtimes", () => {
-  it("ignores hidden paths", async () => {
+  it("applies configured filters, initial page, and order", async () => {
     const root = createTempRoot();
-    await write(root, "visible.md", "# Visible");
-    await write(root, ".hidden/secret.md", "# Secret");
+    await write(root, "README.md", "# Readme");
+    await write(root, "guide.md", "# Guide");
+    await write(root, "draft.md", "# Draft");
 
-    await expect(scanMarkdownMtimes(root)).resolves.toMatchObject({
-      "visible.md": expect.any(Array),
+    const snapshot = await buildSiteIndex(root, {
+      include: ["*.md"],
+      exclude: ["draft.md"],
+      initialPage: "README.md",
+      order: ["README.md", "guide.md"],
     });
-    await expect(scanMarkdownMtimes(root)).resolves.not.toHaveProperty(
-      ".hidden/secret.md",
-    );
+    expect(snapshot.firstPath).toBe("README.md");
+    expect(snapshot.tree.children.map((child) => child.name)).toEqual([
+      "README.md",
+      "guide.md",
+    ]);
   });
 
-  it("ignores gitignored markdown files", async () => {
+  it("rejects an initial page excluded from the tree", async () => {
     const root = createTempRoot();
-    initGitRepo(root);
-    await write(root, ".gitignore", "ignored.md\n");
-    await write(root, "visible.md", "# Visible");
-    await write(root, "ignored.md", "# Ignored");
-
-    await expect(scanMarkdownMtimes(root)).resolves.toMatchObject({
-      "visible.md": expect.any(Array),
-    });
-    await expect(scanMarkdownMtimes(root)).resolves.not.toHaveProperty(
-      "ignored.md",
-    );
+    await write(root, "README.md", "# Readme");
+    await expect(
+      buildSiteIndex(root, {
+        include: ["*.md"],
+        exclude: ["README.md"],
+        initialPage: "README.md",
+        order: [],
+      }),
+    ).rejects.toThrow("initialPage not found");
   });
 });
 

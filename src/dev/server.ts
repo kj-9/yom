@@ -8,13 +8,34 @@ import {
   loadDocument,
   loadSiteSnapshot,
   resolveAssetPath,
+  type DocumentPayload,
 } from "../core/content";
+import type { SiteIndexSnapshot } from "../core/scan";
+import type { SearchResult } from "./repository";
 
-export type DevEventSubscription = (listener: () => void) => () => void;
+export type DevFileEvent = {
+  kind: "document" | "asset";
+  action: "add" | "change" | "remove";
+  path: string;
+};
+
+export type DevEventSubscription = (
+  listener: (event: DevFileEvent) => void,
+) => () => void;
+
+export type DevContentSource = {
+  getSnapshot(): Promise<SiteIndexSnapshot>;
+  getDocument(relativePath: string): Promise<DocumentPayload>;
+  getAssetPath(relativePath: string): Promise<string>;
+  search(query: string): Promise<SearchResult[]>;
+};
 
 export function createYomDevMiddleware(
   root: string,
-  options: { subscribe?: DevEventSubscription } = {},
+  options: {
+    subscribe?: DevEventSubscription;
+    content?: DevContentSource;
+  } = {},
 ): Connect.NextHandleFunction {
   const resolvedRoot = path.resolve(root);
 
@@ -23,7 +44,9 @@ export function createYomDevMiddleware(
 
     try {
       if (requestUrl.pathname === "/api/tree") {
-        const snapshot = await loadSiteSnapshot(resolvedRoot);
+        const snapshot = options.content
+          ? await options.content.getSnapshot()
+          : await loadSiteSnapshot(resolvedRoot);
         return sendJson(res, {
           root: snapshot.root,
           version: Date.now(),
@@ -37,7 +60,16 @@ export function createYomDevMiddleware(
         const rawPath = requestUrl.searchParams.get("path") ?? "";
         return sendJson(
           res,
-          await loadDocument(resolvedRoot, rawPath, { mode: "dev" }),
+          options.content
+            ? await options.content.getDocument(rawPath)
+            : await loadDocument(resolvedRoot, rawPath, { mode: "dev" }),
+        );
+      }
+
+      if (requestUrl.pathname === "/api/search" && options.content) {
+        return sendJson(
+          res,
+          await options.content.search(requestUrl.searchParams.get("q") ?? ""),
         );
       }
 
@@ -49,7 +81,12 @@ export function createYomDevMiddleware(
           requestUrl.pathname === "/assets"
             ? (requestUrl.searchParams.get("path") ?? "")
             : requestUrl.pathname.replace(/^\/assets\//u, "");
-        return sendAsset(res, await resolveAssetPath(resolvedRoot, assetPath));
+        return sendAsset(
+          res,
+          options.content
+            ? await options.content.getAssetPath(assetPath)
+            : await resolveAssetPath(resolvedRoot, assetPath),
+        );
       }
 
       if (requestUrl.pathname === "/events") {
@@ -73,14 +110,16 @@ function sendEvents(
   res.setHeader("Connection", "keep-alive");
   res.write("retry: 1000\n\n");
 
+  const heartbeat = setInterval(() => {
+    res.write(": heartbeat\n\n");
+  }, 15_000);
   const unsubscribe =
-    subscribe?.(() => {
-      res.write(
-        `data: ${JSON.stringify({ version: Date.now(), timestamp: Date.now() / 1000 })}\n\n`,
-      );
+    subscribe?.((event) => {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
     }) ?? (() => {});
 
   res.on("close", () => {
+    clearInterval(heartbeat);
     unsubscribe();
   });
 }

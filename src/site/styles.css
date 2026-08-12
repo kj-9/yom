@@ -206,6 +206,22 @@ a:focus-visible {
   display: none;
 }
 
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--accent-strong);
+  color: #fff;
+  transform: translateY(-150%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 .layout {
   display: grid;
   grid-template-columns: clamp(220px, var(--sidebar-width), 560px) 6px minmax(
@@ -612,7 +628,11 @@ main {
 }
 
 .reader-shell {
-  max-width: 980px;
+  display: grid;
+  grid-template-columns: minmax(0, 980px) minmax(180px, 220px);
+  align-items: start;
+  gap: 22px;
+  max-width: 1220px;
   margin: 0 auto;
 }
 
@@ -625,6 +645,123 @@ main {
 
 .content-panel {
   padding: 24px 40px 42px;
+}
+
+.doc-meta {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  word-break: break-all;
+}
+
+.document-title {
+  margin: 0 0 1.5rem;
+  font-size: 2.35rem;
+}
+
+.front-matter {
+  margin: 0 0 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--accent-wash);
+}
+
+.front-matter summary {
+  cursor: pointer;
+  padding: 8px 12px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.front-matter dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0 12px 12px;
+}
+
+.front-matter dl div {
+  display: grid;
+  grid-template-columns: minmax(80px, 0.3fr) 1fr;
+  gap: 12px;
+}
+
+.front-matter dt {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.front-matter dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.outline-panel {
+  position: sticky;
+  top: 24px;
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 14px;
+  border-left: 1px solid var(--line);
+}
+
+.outline-title {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.outline-list {
+  display: grid;
+  gap: 2px;
+}
+
+.outline-list a {
+  display: block;
+  padding: 5px 7px 5px calc(7px + (var(--heading-level) - 1) * 8px);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.outline-list a:hover,
+.outline-list a.active {
+  color: var(--accent-strong);
+  background: var(--accent-wash);
+}
+
+.document-pagination {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 42px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.document-pagination button {
+  min-height: 42px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--accent-strong);
+  padding: 8px 12px;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-pagination button:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.55;
 }
 
 .context-menu {
@@ -879,6 +1016,55 @@ blockquote {
   margin-top: 1.5rem;
 }
 
+#docRoot h1,
+#docRoot h2,
+#docRoot h3,
+#docRoot h4,
+#docRoot h5,
+#docRoot h6 {
+  position: relative;
+}
+
+.heading-link {
+  margin-left: 0.45rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.72rem;
+  opacity: 0;
+}
+
+.heading-link::before {
+  content: "#";
+}
+
+.heading-link[data-copied="true"]::before {
+  content: "Copied";
+}
+
+#docRoot :is(h1, h2, h3, h4, h5, h6):hover .heading-link,
+.heading-link:focus-visible {
+  opacity: 1;
+}
+
+.code-block {
+  position: relative;
+}
+
+.code-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 6px;
+  background: rgba(17, 24, 39, 0.86);
+  color: #f8fafc;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 0.72rem;
+}
+
 #docRoot p code,
 #docRoot li code {
   font-family: var(--font-ui);
@@ -965,6 +1151,14 @@ blockquote {
     padding: 18px 18px 28px;
   }
 
+  .reader-shell {
+    display: block;
+  }
+
+  .outline-panel {
+    display: none;
+  }
+
   .sidebar-meta {
     align-items: stretch;
   }
@@ -1001,5 +1195,51 @@ blockquote {
   p,
   li {
     font-size: 1rem;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  #sidebar,
+  .sidebar-resizer,
+  .mobile-nav-toggle,
+  .outline-panel,
+  .document-pagination,
+  .heading-link,
+  .code-copy,
+  .status {
+    display: none !important;
+  }
+
+  .layout,
+  .reader-shell {
+    display: block;
+  }
+
+  main {
+    padding: 0;
+    overflow: visible;
+  }
+
+  .content-panel {
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: underline;
+  }
+
+  pre,
+  blockquote,
+  table,
+  img {
+    break-inside: avoid;
   }
 }

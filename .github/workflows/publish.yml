@@ -30,6 +30,18 @@ jobs:
       - name: Run tests
         run: bun run test
 
+      - name: Check tree performance
+        run: bun run benchmark
+
+      - name: Test packed package
+        run: bun run test:package
+
+      - name: Install browser for end-to-end tests
+        run: bunx playwright install --with-deps chromium chromium-headless-shell
+
+      - name: Run end-to-end tests
+        run: bun run test:e2e
+
       - name: Build package
         run: bun run build
 
@@ -51,4 +63,4 @@ jobs:
         run: bun run build
 
       - name: Publish package
-        run: bun publish
+        run: bun run release

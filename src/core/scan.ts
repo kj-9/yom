@@ -1,6 +1,8 @@
-import { readdir, stat } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+
+import { matchesConfigPath, type ResolvedYomConfig } from "./config";
 
 export type TreeNode = {
   name: string;
@@ -15,72 +17,113 @@ export type SiteIndexSnapshot = {
   tree: TreeNode;
 };
 
-export async function buildSiteIndex(root: string): Promise<SiteIndexSnapshot> {
+export type SiteIndexOptions = Pick<
+  ResolvedYomConfig,
+  "include" | "exclude" | "initialPage" | "order"
+>;
+
+export async function buildSiteIndex(
+  root: string,
+  options?: SiteIndexOptions,
+): Promise<SiteIndexSnapshot> {
   const resolvedRoot = path.resolve(root);
-  const ignoredPaths = await gitignoredPaths(resolvedRoot);
-  const tree = await buildTree(resolvedRoot, resolvedRoot, ignoredPaths);
+  const existingPaths = await listExistingPaths(resolvedRoot);
+  return buildSiteIndexFromPaths(resolvedRoot, existingPaths, options);
+}
+
+export function buildSiteIndexFromPaths(
+  root: string,
+  existingPaths: Iterable<string>,
+  options?: SiteIndexOptions,
+): SiteIndexSnapshot {
+  const resolvedRoot = path.resolve(root);
+  const tree: TreeNode = {
+    name: path.basename(resolvedRoot),
+    path: "",
+    type: "directory",
+    children: [],
+  };
+
+  for (const markdownPath of existingPaths) {
+    if (path.posix.extname(markdownPath).toLowerCase() !== ".md") {
+      continue;
+    }
+    if (options && !matchesConfigPath(markdownPath, options)) continue;
+    addMarkdownPath(tree, markdownPath);
+  }
+  sortTree(tree, options?.order ?? []);
+  const discoveredFirstPath = findFirstPath(tree);
+  const firstPath = options?.initialPage ?? discoveredFirstPath;
+  if (options?.initialPage && !treeContainsPath(tree, options.initialPage)) {
+    throw new Error(
+      `invalid yom config: initialPage not found: ${options.initialPage}`,
+    );
+  }
 
   return {
     root: resolvedRoot,
-    firstPath: findFirstPath(tree),
+    firstPath,
     tree,
   };
 }
 
-async function buildTree(
-  current: string,
-  base: string,
-  ignoredPaths: Set<string>,
-): Promise<TreeNode> {
-  const entries = await readdir(current, { withFileTypes: true });
-  entries.sort((left, right) => {
-    if (left.isFile() !== right.isFile()) {
-      return left.isFile() ? 1 : -1;
+function addMarkdownPath(tree: TreeNode, markdownPath: string): void {
+  const parts = markdownPath.split("/").filter(Boolean);
+  let parent = tree;
+  for (const [index, name] of parts.entries()) {
+    const nodePath = parts.slice(0, index + 1).join("/");
+    if (index === parts.length - 1) {
+      parent.children.push({
+        name,
+        path: nodePath,
+        type: "file",
+        children: [],
+      });
+      return;
     }
+    let directory = parent.children.find(
+      (child) => child.type === "directory" && child.name === name,
+    );
+    if (directory === undefined) {
+      directory = {
+        name,
+        path: nodePath,
+        type: "directory",
+        children: [],
+      };
+      parent.children.push(directory);
+    }
+    parent = directory;
+  }
+}
 
+function sortTree(node: TreeNode, order: string[]): void {
+  node.children.sort((left, right) => {
+    const leftOrder = configuredOrder(left, order);
+    const rightOrder = configuredOrder(right, order);
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+    if (left.type !== right.type) {
+      return left.type === "directory" ? -1 : 1;
+    }
     return left.name.localeCompare(right.name, undefined, {
       sensitivity: "base",
     });
   });
-
-  const children: TreeNode[] = [];
-
-  for (const entry of entries) {
-    if (entry.name.startsWith(".")) {
-      continue;
-    }
-
-    const absolutePath = path.join(current, entry.name);
-    const relativePath = toPosixPath(path.relative(base, absolutePath));
-
-    if (ignoredPaths.has(relativePath)) {
-      continue;
-    }
-
-    if (entry.isDirectory()) {
-      const subtree = await buildTree(absolutePath, base, ignoredPaths);
-      if (subtree.children.length > 0) {
-        children.push(subtree);
-      }
-      continue;
-    }
-
-    if (entry.isFile() && path.extname(entry.name).toLowerCase() === ".md") {
-      children.push({
-        name: entry.name,
-        path: relativePath,
-        type: "file",
-        children: [],
-      });
-    }
+  for (const child of node.children) {
+    if (child.type === "directory") sortTree(child, order);
   }
+}
 
-  return {
-    name: path.basename(current),
-    path: current === base ? "" : toPosixPath(path.relative(base, current)),
-    type: "directory",
-    children,
-  };
+function configuredOrder(node: TreeNode, order: string[]): number {
+  const index = order.findIndex(
+    (value) => value === node.path || value === node.name,
+  );
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+function treeContainsPath(node: TreeNode, targetPath: string): boolean {
+  if (node.type === "file") return node.path === targetPath;
+  return node.children.some((child) => treeContainsPath(child, targetPath));
 }
 
 function findFirstPath(node: TreeNode): string | null {
@@ -126,6 +169,18 @@ async function gitignoredPaths(root: string): Promise<Set<string>> {
   );
 }
 
+export function isGitIgnored(root: string, relativePath: string): boolean {
+  const result = spawnSync(
+    "git",
+    ["check-ignore", "--quiet", "--", relativePath],
+    {
+      cwd: path.resolve(root),
+      encoding: "utf-8",
+    },
+  );
+  return result.status === 0;
+}
+
 async function collectCandidates(
   current: string,
   base: string,
@@ -150,29 +205,6 @@ async function collectCandidates(
   return candidates;
 }
 
-export async function scanMarkdownMtimes(
-  root: string,
-): Promise<Record<string, [number, number]>> {
-  const resolvedRoot = path.resolve(root);
-  const ignoredPaths = await gitignoredPaths(resolvedRoot);
-  const snapshot: Record<string, [number, number]> = {};
-
-  for (const relativePath of await collectMarkdownFiles(
-    resolvedRoot,
-    resolvedRoot,
-  )) {
-    if (ignoredPaths.has(relativePath)) {
-      continue;
-    }
-
-    const absolutePath = path.join(resolvedRoot, relativePath);
-    const fileStat = await stat(absolutePath);
-    snapshot[relativePath] = [fileStat.mtimeMs, fileStat.size];
-  }
-
-  return snapshot;
-}
-
 export async function listExistingPaths(root: string): Promise<Set<string>> {
   const resolvedRoot = path.resolve(root);
   const ignoredPaths = await gitignoredPaths(resolvedRoot);
@@ -188,35 +220,6 @@ export async function listAssetFiles(root: string): Promise<string[]> {
   const resolvedRoot = path.resolve(root);
   const ignoredPaths = await gitignoredPaths(resolvedRoot);
   return collectAssetFiles(resolvedRoot, resolvedRoot, ignoredPaths);
-}
-
-async function collectMarkdownFiles(
-  current: string,
-  base: string,
-): Promise<string[]> {
-  const entries = await readdir(current, { withFileTypes: true });
-  const collected: string[] = [];
-
-  for (const entry of entries) {
-    if (entry.name.startsWith(".")) {
-      continue;
-    }
-
-    const absolutePath = path.join(current, entry.name);
-    if (entry.isDirectory()) {
-      collected.push(...(await collectMarkdownFiles(absolutePath, base)));
-      continue;
-    }
-
-    if (entry.isFile() && path.extname(entry.name).toLowerCase() === ".md") {
-      collected.push(toPosixPath(path.relative(base, absolutePath)));
-    }
-  }
-
-  collected.sort((left, right) =>
-    left.localeCompare(right, undefined, { sensitivity: "base" }),
-  );
-  return collected;
 }
 
 function toPosixPath(value: string): string {

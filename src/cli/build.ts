@@ -1,12 +1,28 @@
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
 
+import { build as viteBuild } from "vite";
+
 import { rewriteRelativeLinks } from "../core/links";
-import { renderMarkdown } from "../core/markdown";
-import { assetRouteFromRelativePath } from "../core/routes";
-import { docRouteFromRelativePath } from "../core/routes";
-import { renderStaticDocumentPage, renderStaticIndexPage } from "../core/site";
-import { buildSiteIndex, listExistingPaths, type TreeNode } from "../core/scan";
+import { renderMarkdownDocument } from "../core/markdown";
+import { resolveConfig, type ResolvedYomConfig } from "../core/config";
+import {
+  assetRouteFromRelativePath,
+  dataRouteFromRelativePath,
+  docRouteFromRelativePath,
+  normalizeBasePath,
+} from "../core/routes";
+import {
+  buildSiteIndexFromPaths,
+  listExistingPaths,
+  type TreeNode,
+} from "../core/scan";
+
+const packageRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
 
 if (import.meta.main) {
   const [rootArg = ".", outDirArg = "dist"] = process.argv.slice(2);
@@ -20,41 +36,96 @@ if (import.meta.main) {
 type BuildOptions = {
   root: string;
   outDir: string;
+  basePath?: string;
+  config?: ResolvedYomConfig;
 };
 
-export async function buildStaticSite(options: BuildOptions): Promise<void> {
-  const snapshot = await buildSiteIndex(options.root);
-  const existingPaths = await listExistingPaths(options.root);
-  const referencedAssets = new Set<string>();
+export type BuildResult = {
+  warnings: string[];
+};
 
-  await rm(options.outDir, { recursive: true, force: true });
-  await mkdir(options.outDir, { recursive: true });
+export async function buildStaticSite(
+  options: BuildOptions,
+): Promise<BuildResult> {
+  const config = options.config ?? resolveConfig({});
+  const basePath = normalizeBasePath(options.basePath ?? config.basePath);
+  const existingPaths = await listExistingPaths(options.root);
+  const snapshot = buildSiteIndexFromPaths(options.root, existingPaths, config);
+  const referencedAssets = new Set<string>();
+  const warnings = new Set<string>();
+  const searchEntries: Array<{ path: string; title: string; text: string }> =
+    [];
+
+  await viteBuild({
+    configFile: path.join(packageRoot, "vite.config.ts"),
+    root: packageRoot,
+    base: basePath,
+    logLevel: "silent",
+    build: {
+      outDir: options.outDir,
+      assetsDir: "_yom",
+      emptyOutDir: true,
+    },
+  });
+  const appShell = await readFile(
+    path.join(options.outDir, "index.html"),
+    "utf-8",
+  );
 
   for (const markdownPath of collectMarkdownPaths(snapshot.tree)) {
     const source = await readFile(
       path.join(options.root, markdownPath),
       "utf-8",
     );
-    const rendered = rewriteRelativeLinks(renderMarkdown(source), {
+    const document = renderMarkdownDocument(source);
+    searchEntries.push({
+      path: markdownPath,
+      title: document.title ?? path.basename(markdownPath, ".md"),
+      text: document.body.replace(/\s+/gu, " ").trim(),
+    });
+    const rendered = rewriteRelativeLinks(document.html, {
       sourcePath: markdownPath,
       existingPaths,
+      mode: "static",
+      basePath,
+      onMissingReference(value) {
+        warnings.add(`${markdownPath}: unresolved reference ${value}`);
+      },
     });
-    for (const assetPath of collectAssetReferences(rendered)) {
+    for (const assetPath of collectAssetReferences(rendered, basePath)) {
       referencedAssets.add(assetPath);
     }
-    const outputPath = path.join(
+    const dataPath = outputPath(
       options.outDir,
-      docRouteFromRelativePath(markdownPath),
+      dataRouteFromRelativePath(markdownPath, basePath),
+      basePath,
+    );
+    const documentPath = outputPath(
+      options.outDir,
+      docRouteFromRelativePath(markdownPath, basePath),
+      basePath,
     );
 
-    await mkdir(path.dirname(outputPath), { recursive: true });
+    await mkdir(path.dirname(dataPath), { recursive: true });
     await writeFile(
-      outputPath,
-      renderStaticDocumentPage({
-        title: path.basename(markdownPath, ".md"),
-        content: rendered,
-        tree: snapshot.tree,
-        activePath: markdownPath,
+      dataPath,
+      JSON.stringify({
+        path: markdownPath,
+        raw: source,
+        html: rendered,
+        title: document.title ?? path.basename(markdownPath, ".md"),
+        headings: document.headings,
+        frontMatter: document.frontMatter,
+      }),
+      "utf-8",
+    );
+    await mkdir(path.dirname(documentPath), { recursive: true });
+    await writeFile(
+      documentPath,
+      configureAppShell(appShell, {
+        basePath,
+        initialPath: markdownPath,
+        ...siteConfig(config),
       }),
       "utf-8",
     );
@@ -62,25 +133,47 @@ export async function buildStaticSite(options: BuildOptions): Promise<void> {
 
   for (const assetPath of [...referencedAssets].sort()) {
     const sourcePath = path.join(options.root, assetPath);
-    const outputPath = path.join(
+    const assetOutputPath = outputPath(
       options.outDir,
       assetRouteFromRelativePath(assetPath),
     );
 
-    await mkdir(path.dirname(outputPath), { recursive: true });
-    await cp(sourcePath, outputPath);
+    await mkdir(path.dirname(assetOutputPath), { recursive: true });
+    await cp(sourcePath, assetOutputPath);
   }
 
   await writeFile(
     path.join(options.outDir, "index.html"),
-    renderStaticIndexPage(snapshot.firstPath),
+    configureAppShell(appShell, {
+      basePath,
+      initialPath: snapshot.firstPath,
+      ...siteConfig(config),
+    }),
+    "utf-8",
+  );
+  await writeFile(
+    path.join(options.outDir, "404.html"),
+    configureAppShell(appShell, {
+      basePath,
+      initialPath: null,
+      notFound: true,
+      ...siteConfig(config),
+    }),
     "utf-8",
   );
   await writeFile(
     path.join(options.outDir, "tree.json"),
-    JSON.stringify(snapshot, null, 2),
+    JSON.stringify({ ...snapshot, root: "." }, null, 2),
     "utf-8",
   );
+  await writeFile(
+    path.join(options.outDir, "search.json"),
+    JSON.stringify(searchEntries),
+    "utf-8",
+  );
+
+  for (const warning of warnings) console.warn(`[yom] ${warning}`);
+  return { warnings: [...warnings].sort() };
 }
 
 function collectMarkdownPaths(node: TreeNode): string[] {
@@ -98,7 +191,69 @@ function collectMarkdownPaths(node: TreeNode): string[] {
   return collected;
 }
 
-function collectAssetReferences(content: string): string[] {
-  const matches = content.matchAll(/(?:href|src)="\/assets\/([^"]+)"/giu);
+function collectAssetReferences(content: string, basePath: string): string[] {
+  const prefix = assetRouteFromRelativePath("", basePath);
+  const pattern = new RegExp(
+    `(?:href|src)="${escapeRegExp(prefix)}([^"?#]+)`,
+    "giu",
+  );
+  const matches = content.matchAll(pattern);
   return [...matches].map((match) => match[1]);
+}
+
+function configureAppShell(
+  shell: string,
+  config: {
+    basePath: string;
+    initialPath: string | null;
+    notFound?: boolean;
+    title?: string;
+    lang?: string;
+    theme?: ResolvedYomConfig["theme"];
+    palette?: ResolvedYomConfig["palette"];
+  },
+): string {
+  const serialized = JSON.stringify({ mode: "static", ...config }).replaceAll(
+    "<",
+    "\\u003c",
+  );
+  return shell
+    .replace(/<html lang="[^"]*">/u, `<html lang="${config.lang ?? "und"}">`)
+    .replace(
+      /<title>[^<]*<\/title>/u,
+      `<title>${escapeHtml(config.title ?? "yom")}</title>`,
+    )
+    .replace(
+      /<script id="yom-config" type="application\/json">[\s\S]*?<\/script>/u,
+      `<script id="yom-config" type="application/json">${serialized}</script>`,
+    );
+}
+
+function siteConfig(config: ResolvedYomConfig) {
+  return {
+    title: config.title,
+    lang: config.lang,
+    theme: config.theme,
+    palette: config.palette,
+  };
+}
+
+function outputPath(outDir: string, route: string, basePath = "/"): string {
+  const normalizedBase = normalizeBasePath(basePath);
+  const relativeRoute = route.startsWith(normalizedBase)
+    ? route.slice(normalizedBase.length)
+    : route.replace(/^\/+/, "");
+  return path.join(outDir, relativeRoute);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }

@@ -1,13 +1,15 @@
 import path from "node:path";
 
-import { assetRouteFromRelativePath, docRouteFromRelativePath } from "./routes";
+import { assetRouteFromRelativePath } from "./routes";
 
 export function rewriteRelativeLinks(
   content: string,
   options: {
     sourcePath: string;
-    existingPaths: Set<string>;
+    existingPaths: ReadonlySet<string>;
     mode?: "static" | "dev";
+    basePath?: string;
+    onMissingReference?: (value: string, tag: string) => void;
   },
 ): string {
   const sourcePath = normalizeRelativePath(options.sourcePath);
@@ -27,6 +29,8 @@ export function rewriteRelativeLinks(
         sourcePath,
         existingPaths: options.existingPaths,
         mode: options.mode ?? "static",
+        basePath: options.basePath ?? "/",
+        onMissingReference: options.onMissingReference,
       });
 
       return `<${tag}${before} ${attr}="${escapeHtmlAttribute(rewritten)}"${after}>`;
@@ -56,20 +60,28 @@ function rewritePath(
   options: {
     tag: string;
     sourcePath: string;
-    existingPaths: Set<string>;
+    existingPaths: ReadonlySet<string>;
     mode: "static" | "dev";
+    basePath: string;
+    onMissingReference?: (value: string, tag: string) => void;
   },
 ): string {
   if (!isLocalRelativeUrl(value)) {
     return value;
   }
 
-  const resolvedRelativePath = resolveRelativePath(options.sourcePath, value);
+  const { pathname, suffix } = splitUrlSuffix(value);
+  const resolvedRelativePath = resolveRelativePath(
+    options.sourcePath,
+    pathname,
+  );
   if (resolvedRelativePath === null) {
+    options.onMissingReference?.(value, options.tag);
     return value;
   }
 
   if (!options.existingPaths.has(resolvedRelativePath)) {
+    options.onMissingReference?.(value, options.tag);
     return value;
   }
 
@@ -78,15 +90,36 @@ function rewritePath(
     resolvedRelativePath.toLowerCase().endsWith(".md")
   ) {
     if (options.mode === "dev") {
-      return `/?path=${resolvedRelativePath}`;
+      return appendUrlSuffix(`/?path=${resolvedRelativePath}`, suffix);
     }
-    return docRouteFromRelativePath(resolvedRelativePath);
+    return appendUrlSuffix(
+      `${options.basePath}?path=${resolvedRelativePath}`,
+      suffix,
+    );
   }
 
   if (options.mode === "dev") {
-    return `/assets?path=${resolvedRelativePath}`;
+    return appendUrlSuffix(`/assets?path=${resolvedRelativePath}`, suffix);
   }
-  return assetRouteFromRelativePath(resolvedRelativePath);
+  return appendUrlSuffix(
+    assetRouteFromRelativePath(resolvedRelativePath, options.basePath),
+    suffix,
+  );
+}
+
+function splitUrlSuffix(value: string): { pathname: string; suffix: string } {
+  const suffixIndex = value.search(/[?#]/u);
+  if (suffixIndex === -1) return { pathname: value, suffix: "" };
+  return {
+    pathname: value.slice(0, suffixIndex),
+    suffix: value.slice(suffixIndex),
+  };
+}
+
+function appendUrlSuffix(route: string, suffix: string): string {
+  if (!suffix.startsWith("?")) return `${route}${suffix}`;
+  const separator = route.includes("?") ? "&" : "?";
+  return `${route}${separator}${suffix.slice(1)}`;
 }
 
 function resolveRelativePath(
