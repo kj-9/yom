@@ -96,6 +96,9 @@ export default defineConfig({
   base: "/project/",
   theme: "system",
   palette: "paper",
+  fontSize: "medium",
+  contentWidth: "comfortable",
+  outline: true,
   outDir: "dist",
   open: false,
 });
@@ -128,6 +131,9 @@ export default defineConfig({
 - `Escape`で検索欄などからフォーカスを外す
 - 見出し横の`#`でその見出しのURLをコピー
 - fenced code blockのCopyボタンでコードをコピー
+- 長い文書をスクロールしても、右側の見出し一覧は画面内に追従
+- 表示設定ではテーマ、配色、文字サイズ、本文幅、見出し一覧の表示を変更可能
+- 表示設定はブラウザに保存され、Resetで`yom.config.ts`の既定値へ戻せる
 - front matterでは単純な値と`tags: [one, two]`形式の配列を利用可能
 
 ## 開発
@@ -190,13 +196,21 @@ tarball を生成せず、梱包対象だけ確認する場合:
 npm pack --dry-run
 ```
 
-alpha 公開:
+公開には`.github/workflows/publish.yml`とnpm Trusted Publishingを使用します。
+最初の一度だけ、npm上の`@kj-9/yom`に次を設定します。
 
-```bash
-bun publish --tag alpha --access public
-```
+- repository: `kj-9/yom`
+- workflow: `publish.yml`
+- environment: `release`
+- allowed action: `npm publish`
 
-beta版では`beta`、安定版では`latest`タグを使用します。GitHub Releaseからの
-公開では、`package.json`のバージョンに応じてタグを自動選択します。
+公開時は`package.json`のバージョンを更新してリリースコミットをpushし、
+`v<version>`と完全に一致するタグ（例: `v0.1.0-alpha.3`）でGitHub Releaseを
+公開します。alphaとbetaはprereleaseにします。CIの全検証を通過した後、npmへ
+公開されます。registry tagは`alpha`、`beta`、`latest`から自動選択されます。
+
+workflowは短時間だけ有効なOIDC認証を使うため、GitHub Secretsにnpm tokenを
+保存する必要はありません。ローカルで`bun run release`する場合は、別途npmへの
+ログインが必要です。
 
 実行時には `bun` が必要です。

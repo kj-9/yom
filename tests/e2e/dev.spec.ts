@@ -6,6 +6,7 @@ import {
   spawnSync,
   type ChildProcessWithoutNullStreams,
 } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -129,18 +130,96 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   await staticPage.goto(previewUrl);
   await expect(staticPage.locator("#docRoot h1")).toHaveText("Initial");
   await expect(staticPage.locator("html")).toHaveAttribute("lang", "und");
-  const devScreenshot = await page.screenshot({
+  await Promise.all([
+    page.evaluate(() => document.fonts.ready),
+    staticPage.evaluate(() => document.fonts.ready),
+  ]);
+  await page.locator("#outlineList a").first().click();
+  await staticPage.locator("#outlineList a").first().click();
+  await expect(page.locator("#outlineList a").first()).toHaveClass(/active/u);
+  await expect(staticPage.locator("#outlineList a").first()).toHaveClass(
+    /active/u,
+  );
+  const devScreenshot = await page.locator(".reader-shell").screenshot({
     animations: "disabled",
-    mask: [page.locator("#statusBadge"), page.locator("#rootLabel")],
   });
-  const staticScreenshot = await staticPage.screenshot({
-    animations: "disabled",
-    mask: [
-      staticPage.locator("#statusBadge"),
-      staticPage.locator("#rootLabel"),
-    ],
+  const staticScreenshot = await staticPage
+    .locator(".reader-shell")
+    .screenshot({
+      animations: "disabled",
+    });
+  expect(createHash("sha256").update(staticScreenshot).digest("hex")).toBe(
+    createHash("sha256").update(devScreenshot).digest("hex"),
+  );
+
+  await page.locator(".content-panel").evaluate((panel) => {
+    (panel as HTMLElement).style.minHeight = "2000px";
   });
-  expect(staticScreenshot).toEqual(devScreenshot);
+  await page.evaluate(() => window.scrollTo(0, 700));
+  await expect
+    .poll(() => page.evaluate(() => window.scrollY))
+    .toBeGreaterThan(0);
+  await expect
+    .poll(() =>
+      page
+        .locator("#outlinePanel")
+        .evaluate((panel) => panel.getBoundingClientRect().top),
+    )
+    .toBe(24);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.locator(".content-panel").evaluate((panel) => {
+    (panel as HTMLElement).style.minHeight = "";
+  });
+
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty("--sidebar-width", "220px");
+  });
+  await page.locator("#settingsToggle").click();
+  const settingsBounds = await page.locator("#sidebar").evaluate((sidebar) => {
+    const card = document.querySelector(".settings-card");
+    if (!(card instanceof HTMLElement))
+      throw new Error("settings card missing");
+    const sidebarRect = sidebar.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    return {
+      cardBottom: cardRect.bottom,
+      cardLeft: cardRect.left,
+      cardRight: cardRect.right,
+      sidebarLeft: sidebarRect.left,
+      sidebarRight: sidebarRect.right,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  expect(settingsBounds.cardLeft).toBeGreaterThanOrEqual(
+    settingsBounds.sidebarLeft,
+  );
+  expect(settingsBounds.cardRight).toBeLessThanOrEqual(
+    settingsBounds.sidebarRight,
+  );
+  expect(settingsBounds.cardBottom).toBeLessThanOrEqual(
+    settingsBounds.viewportHeight,
+  );
+  await page.locator("#fontSizeSelect").selectOption("large");
+  await page.locator("#contentWidthSelect").selectOption("wide");
+  await expect(page.locator("body")).toHaveAttribute("data-font-size", "large");
+  await expect(page.locator("body")).toHaveAttribute(
+    "data-content-width",
+    "wide",
+  );
+  await page.locator("#outlineToggle").uncheck();
+  await expect(page.locator("body")).toHaveAttribute("data-outline", "hidden");
+  await page.locator("#resetDisplaySettings").click();
+  await expect(page.locator("body")).toHaveAttribute(
+    "data-font-size",
+    "medium",
+  );
+  await expect(page.locator("body")).toHaveAttribute(
+    "data-content-width",
+    "comfortable",
+  );
+  await expect(page.locator("body")).toHaveAttribute("data-outline", "visible");
+  await page.locator("#settingsToggle").click();
+
   await staticPage.getByRole("button", { name: "Copy code block" }).click();
   await expect(
     staticPage.getByRole("button", { name: "Copy code block" }),
@@ -199,9 +278,21 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   await expect(page.locator("#treeRoot")).toContainText("README.md");
 
   await page.locator("#treeSearch").blur();
-  await page.keyboard.press("]");
+  await expect(page.locator("#nextDocument")).toHaveAttribute(
+    "data-path",
+    "second.md",
+  );
+  await page.evaluate(() => {
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "]" }),
+    );
+  });
   await expect(page.locator("#docRoot h1")).toHaveText("Second");
-  await page.keyboard.press("[");
+  await page.evaluate(() => {
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "[" }),
+    );
+  });
   await expect(page.locator("#docRoot h1")).toHaveText("Updated");
 
   await writeFile(path.join(docsRoot, "pixel.svg"), svg("blue"));

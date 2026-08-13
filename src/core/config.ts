@@ -14,6 +14,9 @@ export type YomConfig = {
   base?: string;
   theme?: "system" | "light" | "dark";
   palette?: "paper" | "forest" | "sea";
+  fontSize?: "small" | "medium" | "large";
+  contentWidth?: "compact" | "comfortable" | "wide";
+  outline?: boolean;
   outDir?: string;
   open?: boolean;
 };
@@ -28,6 +31,9 @@ export type ResolvedYomConfig = {
   basePath: string;
   theme: "system" | "light" | "dark";
   palette: "paper" | "forest" | "sea";
+  fontSize: "small" | "medium" | "large";
+  contentWidth: "compact" | "comfortable" | "wide";
+  outline: boolean;
   outDir: string;
   open: boolean;
   configPath: string | null;
@@ -44,6 +50,9 @@ const ALLOWED_KEYS = new Set([
   "base",
   "theme",
   "palette",
+  "fontSize",
+  "contentWidth",
+  "outline",
   "outDir",
   "open",
 ]);
@@ -115,6 +124,19 @@ export function resolveConfig(
       ["paper", "forest", "sea"],
       "paper",
     ),
+    fontSize: enumValue(
+      value.fontSize,
+      "fontSize",
+      ["small", "medium", "large"],
+      "medium",
+    ),
+    contentWidth: enumValue(
+      value.contentWidth,
+      "contentWidth",
+      ["compact", "comfortable", "wide"],
+      "comfortable",
+    ),
+    outline: optionalBoolean(value.outline, "outline") ?? true,
     outDir: optionalString(value.outDir, "outDir") ?? "dist",
     open: optionalBoolean(value.open, "open") ?? false,
     configPath,

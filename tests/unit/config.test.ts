@@ -26,6 +26,9 @@ describe("yom config", () => {
       basePath: "/",
       theme: "system",
       palette: "paper",
+      fontSize: "medium",
+      contentWidth: "comfortable",
+      outline: true,
       outDir: "dist",
       open: false,
     });
@@ -52,6 +55,11 @@ describe("yom config", () => {
     expect(() => resolveConfig({ initialPage: "../outside.md" })).toThrow(
       "initialPage",
     );
+    expect(() => resolveConfig({ fontSize: "huge" })).toThrow("fontSize");
+    expect(() => resolveConfig({ contentWidth: "fluid" })).toThrow(
+      "contentWidth",
+    );
+    expect(() => resolveConfig({ outline: "yes" })).toThrow("outline");
   });
 
   it("matches include and exclude globs", () => {

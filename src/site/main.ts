@@ -46,6 +46,9 @@ type YomConfig = {
   lang?: string;
   theme?: "system" | "light" | "dark";
   palette?: "paper" | "forest" | "sea";
+  fontSize?: "small" | "medium" | "large";
+  contentWidth?: "compact" | "comfortable" | "wide";
+  outline?: boolean;
 };
 
 const config = readConfig();
@@ -69,6 +72,9 @@ const state = {
 
 const THEME_KEY = "yom-theme";
 const PALETTE_KEY = "yom-palette";
+const FONT_SIZE_KEY = "yom-font-size";
+const CONTENT_WIDTH_KEY = "yom-content-width";
+const OUTLINE_KEY = "yom-outline";
 const SIDEBAR_WIDTH_KEY = "yom-sidebar-width";
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 560;
@@ -93,6 +99,7 @@ async function bootstrap(): Promise<void> {
   app.innerHTML = renderShell();
   initializeTheme();
   initializePalette();
+  initializeReadingPreferences();
   initializeSidebarWidth();
   bindControls();
   bindKeyboardNavigation();
@@ -183,6 +190,16 @@ async function handleFileEvent(event: DevFileEvent): Promise<void> {
 }
 
 function bindControls(): void {
+  window
+    .matchMedia("(prefers-color-scheme: dark)")
+    .addEventListener("change", () => {
+      if (
+        requireElement<HTMLSelectElement>("#themeSelect").value === "system"
+      ) {
+        applyThemePreference("system");
+      }
+    });
+
   requireElement<HTMLInputElement>("#treeSearch").addEventListener(
     "input",
     () => {
@@ -226,14 +243,15 @@ function bindControls(): void {
     },
   );
 
-  requireElement<HTMLButtonElement>("#themeToggle").addEventListener(
-    "click",
-    () => {
-      const nextTheme =
-        document.body.dataset.theme === "dark" ? "light" : "dark";
-      document.body.dataset.theme = nextTheme;
-      localStorage.setItem(THEME_KEY, nextTheme);
-      updateThemeToggleLabel(nextTheme);
+  requireElement<HTMLSelectElement>("#themeSelect").addEventListener(
+    "change",
+    (event) => {
+      const theme = (event.target as HTMLSelectElement).value as
+        | "system"
+        | "light"
+        | "dark";
+      localStorage.setItem(THEME_KEY, theme);
+      applyThemePreference(theme);
     },
   );
 
@@ -243,6 +261,53 @@ function bindControls(): void {
       const palette = (event.target as HTMLSelectElement).value;
       document.body.dataset.palette = palette;
       localStorage.setItem(PALETTE_KEY, palette);
+    },
+  );
+
+  requireElement<HTMLSelectElement>("#fontSizeSelect").addEventListener(
+    "change",
+    (event) => {
+      const value = (event.target as HTMLSelectElement).value;
+      document.body.dataset.fontSize = value;
+      localStorage.setItem(FONT_SIZE_KEY, value);
+    },
+  );
+
+  requireElement<HTMLSelectElement>("#contentWidthSelect").addEventListener(
+    "change",
+    (event) => {
+      const value = (event.target as HTMLSelectElement).value;
+      document.body.dataset.contentWidth = value;
+      localStorage.setItem(CONTENT_WIDTH_KEY, value);
+    },
+  );
+
+  requireElement<HTMLInputElement>("#outlineToggle").addEventListener(
+    "change",
+    (event) => {
+      const visible = (event.target as HTMLInputElement).checked;
+      document.body.dataset.outline = visible ? "visible" : "hidden";
+      localStorage.setItem(OUTLINE_KEY, String(visible));
+    },
+  );
+
+  requireElement<HTMLButtonElement>("#resetDisplaySettings").addEventListener(
+    "click",
+    () => {
+      for (const key of [
+        THEME_KEY,
+        PALETTE_KEY,
+        FONT_SIZE_KEY,
+        CONTENT_WIDTH_KEY,
+        OUTLINE_KEY,
+        SIDEBAR_WIDTH_KEY,
+      ]) {
+        localStorage.removeItem(key);
+      }
+      initializeTheme();
+      initializePalette();
+      initializeReadingPreferences();
+      applySidebarWidth(SIDEBAR_DEFAULT_WIDTH);
     },
   );
 
@@ -402,6 +467,9 @@ async function refreshContent(
       state.firstPath = snapshot.firstPath;
       requireElement<HTMLElement>("#rootLabel").textContent = snapshot.root;
       renderTree(snapshot.tree);
+      if (state.currentPath !== null) {
+        renderPagination(state.currentPath);
+      }
     }
 
     const nextPath =
@@ -550,12 +618,7 @@ function observeHeadings(): void {
     (entries) => {
       const visible = entries.find((entry) => entry.isIntersecting);
       if (!(visible?.target instanceof HTMLElement)) return;
-      for (const link of document.querySelectorAll("#outlineList a")) {
-        link.classList.toggle(
-          "active",
-          (link as HTMLElement).dataset.headingId === visible.target.id,
-        );
-      }
+      setActiveOutlineHeading(visible.target.id);
     },
     { rootMargin: "-10% 0px -75% 0px" },
   );
@@ -921,16 +984,12 @@ function setViewMode(mode: "rendered" | "raw"): void {
 
 function initializeTheme(): void {
   const saved = localStorage.getItem(THEME_KEY);
-  const theme =
-    saved === "light" || saved === "dark"
+  const preference =
+    saved === "system" || saved === "light" || saved === "dark"
       ? saved
-      : config.theme === "light" || config.theme === "dark"
-        ? config.theme
-        : window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light";
-  document.body.dataset.theme = theme;
-  updateThemeToggleLabel(theme);
+      : (config.theme ?? "system");
+  requireElement<HTMLSelectElement>("#themeSelect").value = preference;
+  applyThemePreference(preference);
 }
 
 function initializePalette(): void {
@@ -940,14 +999,49 @@ function initializePalette(): void {
   requireElement<HTMLSelectElement>("#paletteSelect").value = palette;
 }
 
+function initializeReadingPreferences(): void {
+  const savedFontSize = localStorage.getItem(FONT_SIZE_KEY);
+  const fontSize =
+    savedFontSize === "small" ||
+    savedFontSize === "medium" ||
+    savedFontSize === "large"
+      ? savedFontSize
+      : (config.fontSize ?? "medium");
+  const savedContentWidth = localStorage.getItem(CONTENT_WIDTH_KEY);
+  const contentWidth =
+    savedContentWidth === "compact" ||
+    savedContentWidth === "comfortable" ||
+    savedContentWidth === "wide"
+      ? savedContentWidth
+      : (config.contentWidth ?? "comfortable");
+  const savedOutline = localStorage.getItem(OUTLINE_KEY);
+  const outline =
+    savedOutline === "true"
+      ? true
+      : savedOutline === "false"
+        ? false
+        : (config.outline ?? true);
+
+  document.body.dataset.fontSize = fontSize;
+  document.body.dataset.contentWidth = contentWidth;
+  document.body.dataset.outline = outline ? "visible" : "hidden";
+  requireElement<HTMLSelectElement>("#fontSizeSelect").value = fontSize;
+  requireElement<HTMLSelectElement>("#contentWidthSelect").value = contentWidth;
+  requireElement<HTMLInputElement>("#outlineToggle").checked = outline;
+}
+
 function initializeSidebarWidth(): void {
   const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
   applySidebarWidth(Number.isFinite(saved) ? saved : SIDEBAR_DEFAULT_WIDTH);
 }
 
-function updateThemeToggleLabel(theme: string): void {
-  requireElement<HTMLButtonElement>("#themeToggle").textContent =
-    theme === "dark" ? "Light mode" : "Dark mode";
+function applyThemePreference(preference: "system" | "light" | "dark"): void {
+  document.body.dataset.theme =
+    preference === "system"
+      ? window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
+      : preference;
 }
 
 function applySidebarWidth(width: number): void {
@@ -1120,6 +1214,16 @@ function updateCurrentHash(id: string): void {
   const url = new URL(window.location.href);
   url.hash = id;
   history.replaceState({}, "", url);
+  setActiveOutlineHeading(id);
+}
+
+function setActiveOutlineHeading(id: string): void {
+  for (const link of document.querySelectorAll("#outlineList a")) {
+    link.classList.toggle(
+      "active",
+      (link as HTMLElement).dataset.headingId === id,
+    );
+  }
 }
 
 function resetContextMenuCopyLabel(): void {
@@ -1150,6 +1254,7 @@ function scrollToHash(hash: string | undefined): void {
   if (!hash) return;
   const id = decodeURIComponent(hash.replace(/^#/u, ""));
   document.getElementById(id)?.scrollIntoView();
+  setActiveOutlineHeading(id);
 }
 
 function readConfig(): YomConfig {
@@ -1168,6 +1273,9 @@ function readConfig(): YomConfig {
     lang: parsed.lang,
     theme: parsed.theme,
     palette: parsed.palette,
+    fontSize: parsed.fontSize,
+    contentWidth: parsed.contentWidth,
+    outline: parsed.outline,
   };
 }
 
@@ -1199,7 +1307,6 @@ function renderShell(): string {
                 <span aria-hidden="true">&#9881;</span>
               </summary>
               <div class="settings-card">
-                <button class="theme-toggle" id="themeToggle" type="button">Dark mode</button>
                 <div class="settings-group">
                   <span class="settings-label">View</span>
                   <div class="view-mode" role="group">
@@ -1207,14 +1314,48 @@ function renderShell(): string {
                     <button id="rawMode" type="button">Raw</button>
                   </div>
                 </div>
-                <label class="palette-picker">
-                  <span class="settings-label">Palette</span>
-                  <select id="paletteSelect">
-                    <option value="paper">Paper</option>
-                    <option value="forest">Forest</option>
-                    <option value="sea">Sea</option>
-                  </select>
+                <div class="settings-grid">
+                  <label class="settings-control">
+                    <span class="settings-label">Theme</span>
+                    <select id="themeSelect">
+                      <option value="system">System</option>
+                      <option value="light">Light</option>
+                      <option value="dark">Dark</option>
+                    </select>
+                  </label>
+                  <label class="settings-control palette-picker">
+                    <span class="settings-label">Palette</span>
+                    <select id="paletteSelect">
+                      <option value="paper">Paper</option>
+                      <option value="forest">Forest</option>
+                      <option value="sea">Sea</option>
+                    </select>
+                  </label>
+                  <label class="settings-control">
+                    <span class="settings-label">Text size</span>
+                    <select id="fontSizeSelect">
+                      <option value="small">Small</option>
+                      <option value="medium">Medium</option>
+                      <option value="large">Large</option>
+                    </select>
+                  </label>
+                  <label class="settings-control">
+                    <span class="settings-label">Page width</span>
+                    <select id="contentWidthSelect">
+                      <option value="compact">Compact</option>
+                      <option value="comfortable">Comfortable</option>
+                      <option value="wide">Wide</option>
+                    </select>
+                  </label>
+                </div>
+                <label class="switch-control">
+                  <span>
+                    <strong>Page outline</strong>
+                    <small>Keep headings beside the page</small>
+                  </span>
+                  <input id="outlineToggle" type="checkbox" />
                 </label>
+                <button class="settings-reset" id="resetDisplaySettings" type="button">Reset display settings</button>
               </div>
             </details>
           </div>

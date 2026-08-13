@@ -95,6 +95,9 @@ export default defineConfig({
           lang: config.lang,
           theme: config.theme,
           palette: config.palette,
+          fontSize: config.fontSize,
+          contentWidth: config.contentWidth,
+          outline: config.outline,
         }).replaceAll("<", "\\u003c");
         return html
           .replace(/<html lang="[^"]*">/u, `<html lang="${config.lang}">`)

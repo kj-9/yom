@@ -211,6 +211,9 @@ function configureAppShell(
     lang?: string;
     theme?: ResolvedYomConfig["theme"];
     palette?: ResolvedYomConfig["palette"];
+    fontSize?: ResolvedYomConfig["fontSize"];
+    contentWidth?: ResolvedYomConfig["contentWidth"];
+    outline?: boolean;
   },
 ): string {
   const serialized = JSON.stringify({ mode: "static", ...config }).replaceAll(
@@ -235,6 +238,9 @@ function siteConfig(config: ResolvedYomConfig) {
     lang: config.lang,
     theme: config.theme,
     palette: config.palette,
+    fontSize: config.fontSize,
+    contentWidth: config.contentWidth,
+    outline: config.outline,
   };
 }
 

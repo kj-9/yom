@@ -97,6 +97,9 @@ export default defineConfig({
   base: "/project/",
   theme: "system",
   palette: "paper",
+  fontSize: "medium",
+  contentWidth: "comfortable",
+  outline: true,
   outDir: "dist",
   open: false,
 });
@@ -130,6 +133,10 @@ when the site is hosted below a subpath such as GitHub Pages.
 - Press `Escape` to leave a search or form control
 - Use the `#` action beside a heading to copy its URL
 - Use the copy action on fenced code blocks to copy their contents
+- The page outline stays visible while a long document scrolls
+- Display settings include system/light/dark themes, palette, text size, page
+  width, and outline visibility; browser choices are saved locally
+- Use **Reset display settings** to return to the `yom.config.ts` defaults
 - Front matter supports simple scalar values and inline arrays such as
   `tags: [one, two]`
 
@@ -195,13 +202,22 @@ Inspect the files that would be packed without creating a tarball:
 npm pack --dry-run
 ```
 
-Publish an alpha release:
+Releases are published from `.github/workflows/publish.yml` with npm trusted
+publishing. Configure the `@kj-9/yom` trusted publisher on npm once with:
 
-```bash
-bun publish --tag alpha --access public
-```
+- repository: `kj-9/yom`
+- workflow: `publish.yml`
+- environment: `release`
+- allowed action: `npm publish`
 
-Use the corresponding `beta` tag for beta versions and `latest` for stable versions.
-GitHub releases select this tag automatically from the version in `package.json`.
+To publish, update `package.json`, push the release commit, then publish a GitHub
+release whose tag exactly matches `v<version>` (for example,
+`v0.1.0-alpha.3`; mark alpha and beta releases as prereleases). CI verifies the
+package before publishing it. The registry tag is selected automatically: `alpha`,
+`beta`, or `latest`.
+
+The workflow uses short-lived OIDC credentials and does not require an npm token in
+GitHub Secrets. Running `bun run release` locally still requires an authenticated npm
+session.
 
 This package expects `bun` to be available at runtime.

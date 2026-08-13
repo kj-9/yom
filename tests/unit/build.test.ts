@@ -39,6 +39,9 @@ describe("buildStaticSite", () => {
         lang: "ja",
         theme: "dark",
         palette: "forest",
+        fontSize: "large",
+        contentWidth: "wide",
+        outline: false,
       }),
     });
 
@@ -80,6 +83,12 @@ describe("buildStaticSite", () => {
     await expect(
       readFile(path.join(outDir, "index.html"), "utf-8"),
     ).resolves.toContain('<html lang="ja">');
+    await expect(
+      readFile(path.join(outDir, "index.html"), "utf-8"),
+    ).resolves.toContain('"contentWidth":"wide"');
+    await expect(
+      readFile(path.join(outDir, "index.html"), "utf-8"),
+    ).resolves.toContain('"outline":false');
     await expect(
       readFile(path.join(outDir, "index.html"), "utf-8"),
     ).resolves.toContain('"initialPath":"docs/page.md"');

@@ -27,6 +27,7 @@ describe("npx package bin", () => {
           ...process.env,
           NO_UPDATE_NOTIFIER: "1",
           npm_config_cache: path.join(cwd, ".npm-cache"),
+          npm_config_dry_run: undefined,
           npm_config_update_notifier: "false",
         },
       },

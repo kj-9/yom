@@ -1,8 +1,19 @@
 {
   "name": "@kj-9/yom",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "description": "Markdown tree viewer and static site builder",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kj-9/yom.git"
+  },
+  "homepage": "https://github.com/kj-9/yom#readme",
+  "bugs": {
+    "url": "https://github.com/kj-9/yom/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "engines": {
     "bun": ">=1.3.0"
@@ -17,7 +28,7 @@
     "LICENSE"
   ],
   "bin": {
-    "yom": "./bin/yom"
+    "yom": "bin/yom"
   },
   "exports": {
     ".": "./src/core/config.ts"
@@ -31,7 +42,8 @@
     "test:e2e": "playwright test",
     "test:package": "vitest run tests/package",
     "check": "tsc --noEmit",
-    "publish-alpha": "bun publish --tag alpha --access public",
+    "publish-alpha": "bun run release",
+    "prepublishOnly": "bun run check && bun run test",
     "release": "bun run ./scripts/release.ts",
     "format": "prettier --check \"bin\" \"index.html\" \"playwright.config.ts\" \"scripts/**/*.ts\" \"src/**/*.{ts,css}\" \"tests/**/*.ts\""
   },
