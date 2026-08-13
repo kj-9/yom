@@ -159,9 +159,10 @@ async function waitForDevServer(
 
     const onData = (chunk: Buffer) => {
       output += chunk.toString("utf-8");
-      if (output.includes("Local:")) {
+      const normalized = stripAnsi(output);
+      if (normalized.includes("Local:")) {
         clearTimeout(timeout);
-        resolve(output);
+        resolve(normalized);
       }
     };
 
@@ -172,7 +173,7 @@ async function waitForDevServer(
       reject(error);
     });
     child.on("exit", (code, signal) => {
-      if (output.includes("Local:")) {
+      if (stripAnsi(output).includes("Local:")) {
         return;
       }
       clearTimeout(timeout);
@@ -185,4 +186,8 @@ async function waitForDevServer(
       );
     });
   });
+}
+
+function stripAnsi(value: string): string {
+  return value.replace(/\u001B\[[0-9;]*m/gu, "");
 }
