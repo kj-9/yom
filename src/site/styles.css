@@ -391,6 +391,7 @@ body.resizing-sidebar {
   width: min(290px, calc(var(--sidebar-width) - 24px), calc(100vw - 32px));
   max-height: calc(100vh - 96px);
   overflow: auto;
+  min-width: 0;
   display: grid;
   gap: 10px;
   padding: 12px;
@@ -407,8 +408,9 @@ body.resizing-sidebar {
 
 .settings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(112px, 100%), 1fr));
   gap: 10px;
+  min-width: 0;
 }
 
 .settings-label {
@@ -422,10 +424,12 @@ body.resizing-sidebar {
   position: relative;
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
 .settings-control select {
   width: 100%;
+  min-width: 0;
   padding: 7px 28px 7px 10px;
   cursor: pointer;
   appearance: none;

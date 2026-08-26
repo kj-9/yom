@@ -601,9 +601,12 @@ function renderOutline(): void {
     )
     .join("");
   for (const link of list.querySelectorAll<HTMLAnchorElement>("a")) {
-    link.addEventListener("click", () => {
+    link.addEventListener("click", (event) => {
       const id = link.dataset.headingId;
-      if (id) updateCurrentHash(id);
+      if (!id) return;
+      event.preventDefault();
+      updateCurrentHash(id);
+      scrollToHeading(id);
     });
   }
   observeHeadings();
@@ -1252,9 +1255,22 @@ function writeCurrentPath(relativePath: string, hash = ""): void {
 
 function scrollToHash(hash: string | undefined): void {
   if (!hash) return;
-  const id = decodeURIComponent(hash.replace(/^#/u, ""));
-  document.getElementById(id)?.scrollIntoView();
+  const id = decodeHash(hash);
+  if (!id) return;
+  scrollToHeading(id);
   setActiveOutlineHeading(id);
+}
+
+function decodeHash(hash: string): string | null {
+  try {
+    return decodeURIComponent(hash.replace(/^#/u, ""));
+  } catch {
+    return null;
+  }
+}
+
+function scrollToHeading(id: string): void {
+  document.getElementById(id)?.scrollIntoView({ block: "start" });
 }
 
 function readConfig(): YomConfig {

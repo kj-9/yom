@@ -205,7 +205,7 @@ npm pack --dry-run
 - allowed action: `npm publish`
 
 公開時は`package.json`のバージョンを更新してリリースコミットをpushし、
-`v<version>`と完全に一致するタグ（例: `v0.1.0-alpha.3`）でGitHub Releaseを
+`v<version>`と完全に一致するタグ（例: `v0.1.0-alpha.4`）でGitHub Releaseを
 公開します。alphaとbetaはprereleaseにします。CIの全検証を通過した後、npmへ
 公開されます。registry tagは`alpha`、`beta`、`latest`から自動選択されます。
 

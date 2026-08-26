@@ -212,7 +212,7 @@ publishing. Configure the `@kj-9/yom` trusted publisher on npm once with:
 
 To publish, update `package.json`, push the release commit, then publish a GitHub
 release whose tag exactly matches `v<version>` (for example,
-`v0.1.0-alpha.3`; mark alpha and beta releases as prereleases). CI verifies the
+`v0.1.0-alpha.4`; mark alpha and beta releases as prereleases). CI verifies the
 package before publishing it. The registry tag is selected automatically: `alpha`,
 `beta`, or `latest`.
 

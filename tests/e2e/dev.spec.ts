@@ -159,6 +159,15 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
     .toBeGreaterThan(0);
+  await page.locator('#outlineList a[data-heading-id="details"]').click();
+  await expect
+    .poll(() =>
+      page
+        .locator("#details")
+        .evaluate((heading) => heading.getBoundingClientRect().top),
+    )
+    .toBeLessThanOrEqual(1);
+  await expect(page).toHaveURL(/#details$/u);
   await expect
     .poll(() =>
       page
@@ -185,6 +194,8 @@ test("updates an external Markdown tree without periodic DOM replacement", async
       cardBottom: cardRect.bottom,
       cardLeft: cardRect.left,
       cardRight: cardRect.right,
+      cardScrollWidth: card.scrollWidth,
+      cardWidth: card.clientWidth,
       sidebarLeft: sidebarRect.left,
       sidebarRight: sidebarRect.right,
       viewportHeight: window.innerHeight,
@@ -195,6 +206,9 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   );
   expect(settingsBounds.cardRight).toBeLessThanOrEqual(
     settingsBounds.sidebarRight,
+  );
+  expect(settingsBounds.cardScrollWidth).toBeLessThanOrEqual(
+    settingsBounds.cardWidth,
   );
   expect(settingsBounds.cardBottom).toBeLessThanOrEqual(
     settingsBounds.viewportHeight,
