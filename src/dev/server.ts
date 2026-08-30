@@ -158,6 +158,7 @@ function sendJson(
   const body = JSON.stringify(payload);
   res.statusCode = 200;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
   res.end(body);
 }
 

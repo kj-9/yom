@@ -123,7 +123,7 @@ function HydratedPage(props: {
     if (props.payload.mode !== "dev") return;
     const events = new EventSource("/events");
     const refresh = async (): Promise<void> => {
-      const response = await fetch("/api/site");
+      const response = await fetch("/api/site", { cache: "no-store" });
       if (!response.ok) return;
       const next = (await response.json()) as typeof snapshot;
       setSnapshot((current) =>
