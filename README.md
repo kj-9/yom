@@ -1,8 +1,11 @@
 # yom
 
-`yom` is a Bun-powered local web viewer and static site builder for Markdown trees.
+`yom` is a Node.js-compatible local web viewer and static site builder for Markdown trees.
 It scans a directory, renders `.md` files, and serves them in a sidebar-based browser UI
 with live reload.
+
+Bun is used for repository development and tests. The published CLI is compiled ESM and
+requires Node.js 22.12 or newer; Bun is not required at runtime.
 
 ## Features
 

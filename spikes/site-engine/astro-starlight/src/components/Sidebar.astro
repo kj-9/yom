@@ -1,0 +1,38 @@
+---
+import { getCollection } from "astro:content";
+
+const docs = (await getCollection("docs")).sort((left, right) =>
+  left.id.localeCompare(right.id)
+);
+const currentId = Astro.locals.starlightRoute.id || "index";
+const hrefFor = (id: string) => (id === "index" ? "/" : `/${id}/`);
+---
+
+<ul class="spike-document-list" aria-label="Documents">
+  {
+    docs.map((doc) => (
+      <li>
+        <a href={hrefFor(doc.id)} aria-current={doc.id === currentId ? "page" : undefined}>
+          {doc.data.title}
+        </a>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .spike-document-list {
+    list-style: none;
+    margin: 0;
+    padding: 1rem;
+  }
+
+  a {
+    display: block;
+    padding: 0.35rem 0.5rem;
+  }
+
+  [aria-current="page"] {
+    font-weight: 700;
+  }
+</style>

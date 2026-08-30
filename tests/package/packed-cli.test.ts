@@ -48,8 +48,9 @@ beforeAll(async () => {
     expect.arrayContaining([
       "bin/yom",
       "index.html",
-      "vite.config.ts",
-      "src/cli/index.ts",
+      "lib/cli/index.js",
+      "lib/core/config.js",
+      "src/site/main.ts",
     ]),
   );
 

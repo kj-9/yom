@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { rewriteRelativeLinks } from "./links";
-import { renderMarkdownDocument, type MarkdownDocument } from "./markdown";
-import { buildSiteIndex, listExistingPaths } from "./scan";
+import { rewriteRelativeLinks } from "./links.js";
+import { renderMarkdownDocument, type MarkdownDocument } from "./markdown.js";
+import { buildSiteIndex, listExistingPaths } from "./scan.js";
 
 export type DocumentPayload = {
   path: string;

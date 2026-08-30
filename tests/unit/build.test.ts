@@ -50,6 +50,18 @@ describe("buildStaticSite", () => {
     ).resolves.toContain('<html lang="ja">');
     await expect(
       readFile(path.join(outDir, "docs/guide.html"), "utf-8"),
+    ).resolves.toContain('id="docRoot"');
+    await expect(
+      readFile(path.join(outDir, "docs/guide.html"), "utf-8"),
+    ).resolves.toContain('aria-label="Documents"');
+    await expect(
+      readFile(path.join(outDir, "docs/guide.html"), "utf-8"),
+    ).resolves.toContain('aria-label="On this page"');
+    await expect(
+      readFile(path.join(outDir, "docs/guide.html"), "utf-8"),
+    ).resolves.toContain('"snapshot"');
+    await expect(
+      readFile(path.join(outDir, "docs/guide.html"), "utf-8"),
     ).resolves.toContain('"initialPath":"guide.md"');
     await expect(
       readFile(path.join(outDir, "docs/guide.html"), "utf-8"),

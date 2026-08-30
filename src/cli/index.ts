@@ -1,20 +1,19 @@
-import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import process from "node:process";
 
 import { cac } from "cac";
+import { createServer, preview } from "vite";
 
 import packageJson from "../../package.json" with { type: "json" };
-import { loadYomConfig, type ResolvedYomConfig } from "../core/config";
-import { buildStaticSite } from "./build";
+import { loadYomConfig, type ResolvedYomConfig } from "../core/config.js";
+import { createYomViteConfig } from "../dev/vite.js";
+import { buildStaticSite } from "./build.js";
 
 const packageRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
-const viteConfigPath = path.join(packageRoot, "vite.config.ts");
-
 type Command = "dev" | "build" | "preview";
 
 export type CliOptions = {
@@ -78,7 +77,8 @@ if (isDirectExecution(process.argv)) {
 }
 
 export async function main(argv: string[]): Promise<void> {
-  await cli.parse(["bun", "yom", ...argv], { run: true });
+  assertSupportedNodeVersion();
+  await cli.parse(["node", "yom", ...argv], { run: true });
 }
 
 export async function run(options: CliOptions): Promise<void> {
@@ -93,48 +93,34 @@ export async function run(options: CliOptions): Promise<void> {
   }
 
   if (options.command === "dev") {
-    await spawnBun(
-      [
-        "x",
-        "vite",
-        "--config",
-        viteConfigPath,
-        "--host",
-        options.host,
-        "--port",
-        String(options.port),
-        ...(options.siteConfig?.open ? ["--open"] : []),
-      ],
-      {
-        env: {
-          YOM_ROOT: path.resolve(options.root),
-          YOM_CONFIG: JSON.stringify(options.siteConfig),
-        },
+    const server = await createServer({
+      ...createYomViteConfig({
+        contentRoot: path.resolve(options.root),
+        config: options.siteConfig,
+      }),
+      configFile: false,
+      root: packageRoot,
+      server: {
+        host: options.host,
+        port: options.port,
+        open: options.siteConfig?.open,
       },
-    );
+    });
+    await server.listen();
+    server.printUrls();
+    await waitForShutdown(server.close);
     return;
   }
 
-  await spawnBun(
-    [
-      "x",
-      "vite",
-      "preview",
-      "--config",
-      viteConfigPath,
-      "--base",
-      options.basePath,
-      "--outDir",
-      options.outDir,
-      "--host",
-      options.host,
-      "--port",
-      String(options.port),
-    ],
-    {
-      cwd: process.cwd(),
-    },
-  );
+  const server = await preview({
+    configFile: false,
+    root: process.cwd(),
+    base: options.basePath,
+    build: { outDir: path.resolve(options.outDir) },
+    preview: { host: options.host, port: options.port },
+  });
+  server.printUrls();
+  await waitForShutdown(server.close);
 }
 
 async function runConfigured(
@@ -167,56 +153,27 @@ export function isDirectExecution(argv: string[]): boolean {
     return false;
   }
 
-  return /(?:^|\/)index\.ts$/u.test(entrypoint);
+  return /(?:^|\/)index\.(?:ts|js)$/u.test(entrypoint);
 }
 
-async function spawnBun(
-  args: string[],
-  options: {
-    cwd?: string;
-    env?: NodeJS.ProcessEnv;
-  } = {},
-): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn("bun", args, {
-      cwd: options.cwd ?? packageRoot,
-      env: {
-        ...process.env,
-        ...options.env,
-      },
-      stdio: "inherit",
-    });
+export function assertSupportedNodeVersion(
+  version = process.versions.node,
+): void {
+  const [major = 0, minor = 0] = version.split(".").map(Number);
+  if (major > 22 || (major === 22 && minor >= 12)) return;
+  throw new Error(
+    `yom requires Node.js >= 22.12.0 (found v${version}). Please upgrade Node.js and try again.`,
+  );
+}
 
-    let forwardedSignal = false;
-    const forwardSignal = (signal: NodeJS.Signals): void => {
-      forwardedSignal = true;
-      child.kill(signal);
+async function waitForShutdown(close: () => Promise<void>): Promise<void> {
+  await new Promise<void>((resolve) => {
+    const stop = (): void => {
+      process.off("SIGINT", stop);
+      process.off("SIGTERM", stop);
+      void close().finally(resolve);
     };
-    const forwardInterrupt = (): void => forwardSignal("SIGINT");
-    const forwardTermination = (): void => forwardSignal("SIGTERM");
-    process.once("SIGINT", forwardInterrupt);
-    process.once("SIGTERM", forwardTermination);
-
-    const cleanup = (): void => {
-      process.off("SIGINT", forwardInterrupt);
-      process.off("SIGTERM", forwardTermination);
-    };
-
-    child.on("error", (error) => {
-      cleanup();
-      reject(error);
-    });
-    child.on("exit", (code, signal) => {
-      cleanup();
-      if (code === 0 || (forwardedSignal && signal !== null)) {
-        resolve();
-        return;
-      }
-      reject(
-        new Error(
-          `bun ${args.join(" ")} failed with code ${code ?? "unknown"}`,
-        ),
-      );
-    });
+    process.once("SIGINT", stop);
+    process.once("SIGTERM", stop);
   });
 }

@@ -2,7 +2,7 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-import { matchesConfigPath, type ResolvedYomConfig } from "./config";
+import { matchesConfigPath, type ResolvedYomConfig } from "./config.js";
 
 export type TreeNode = {
   name: string;

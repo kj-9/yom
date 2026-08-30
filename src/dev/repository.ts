@@ -5,20 +5,21 @@ import {
   loadDocument,
   resolveAssetPath,
   type DocumentPayload,
-} from "../core/content";
+} from "../core/content.js";
 import {
   buildSiteIndexFromPaths,
   isGitIgnored,
   listExistingPaths,
   type SiteIndexSnapshot,
-} from "../core/scan";
-import type { DevFileEvent } from "./server";
+} from "../core/scan.js";
+import type { DevFileEvent } from "./server.js";
 import {
   matchesConfigPath,
   resolveConfig,
   type ResolvedYomConfig,
-} from "../core/config";
-import { renderMarkdownDocument } from "../core/markdown";
+} from "../core/config.js";
+import { renderMarkdownDocument } from "../core/markdown.js";
+import { buildSiteSnapshot, type SiteSnapshot } from "../core/sitepayload.js";
 
 export type SearchResult = {
   path: string;
@@ -49,6 +50,12 @@ export class DevContentRepository {
     await this.ready;
     await this.updates;
     return this.snapshot;
+  }
+
+  async getSiteSnapshot(): Promise<SiteSnapshot> {
+    await this.ready;
+    await this.updates;
+    return buildSiteSnapshot(this.root, { config: this.config, mode: "dev" });
   }
 
   async getDocument(relativePath: string): Promise<DocumentPayload> {

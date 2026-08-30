@@ -4,14 +4,16 @@ import path from "node:path";
 
 import type { Connect } from "vite";
 
+import { resolveConfig } from "../core/config.js";
 import {
   loadDocument,
   loadSiteSnapshot,
   resolveAssetPath,
   type DocumentPayload,
-} from "../core/content";
-import type { SiteIndexSnapshot } from "../core/scan";
-import type { SearchResult } from "./repository";
+} from "../core/content.js";
+import { buildSiteSnapshot, type SiteSnapshot } from "../core/sitepayload.js";
+import type { SiteIndexSnapshot } from "../core/scan.js";
+import type { SearchResult } from "./repository.js";
 
 export type DevFileEvent = {
   kind: "document" | "asset";
@@ -25,6 +27,7 @@ export type DevEventSubscription = (
 
 export type DevContentSource = {
   getSnapshot(): Promise<SiteIndexSnapshot>;
+  getSiteSnapshot?(): Promise<SiteSnapshot>;
   getDocument(relativePath: string): Promise<DocumentPayload>;
   getAssetPath(relativePath: string): Promise<string>;
   search(query: string): Promise<SearchResult[]>;
@@ -54,6 +57,18 @@ export function createYomDevMiddleware(
           firstPath: snapshot.firstPath,
           tree: snapshot.tree,
         });
+      }
+
+      if (requestUrl.pathname === "/api/site") {
+        return sendJson(
+          res,
+          options.content
+            ? await options.content.getSiteSnapshot?.()
+            : await buildSiteSnapshot(resolvedRoot, {
+                config: resolveConfig({}),
+                mode: "dev",
+              }),
+        );
       }
 
       if (requestUrl.pathname === "/api/doc") {

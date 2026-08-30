@@ -112,11 +112,26 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto(baseUrl);
   await expect(page.locator("#docRoot h1")).toHaveText("Initial");
+  await expect(page.locator("#statusText")).toHaveText("Watching");
+  await expect(page.locator("#rootLabel")).toHaveCount(0);
   await expect(page.locator("#documentTitle")).toHaveText("Initial guide");
   await expect(page.locator("#frontMatter")).toBeVisible();
+  await expect(page.locator("#frontMatterValues")).toContainText("title");
+  await expect(page.locator("#frontMatterValues")).toContainText(
+    "Initial guide",
+  );
   await expect(page.locator("#outlinePanel")).toBeVisible();
   await expect(page.locator("#outlineList")).toContainText("Details");
   await expect(page.locator("html")).toHaveAttribute("lang", "und");
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        performance
+          .getEntriesByType("resource")
+          .some((entry) => entry.name.includes("mermaid")),
+      ),
+    )
+    .toBe(false);
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(
     accessibility.violations.map((violation) => ({
@@ -180,9 +195,29 @@ test("updates an external Markdown tree without periodic DOM replacement", async
     (panel as HTMLElement).style.minHeight = "";
   });
 
-  await page.evaluate(() => {
-    document.documentElement.style.setProperty("--sidebar-width", "220px");
-  });
+  await page.locator("#rawMode").click();
+  await expect(page.locator("#docRoot")).toBeHidden();
+  await expect(page.locator("#rawRoot")).toContainText("# Initial");
+  await expect(page.locator("#rawRoot")).toContainText("title: Initial guide");
+  await expect(page.locator("#outlinePanel")).toBeHidden();
+  await page.locator("#renderedMode").click();
+  await expect(page.locator("#docRoot h1")).toHaveText("Initial");
+  await expect(page.locator("#outlinePanel")).toBeVisible();
+
+  const resizer = page.locator("#sidebarResizer");
+  const resizerBounds = await resizer.boundingBox();
+  if (resizerBounds === null) throw new Error("sidebar resizer missing");
+  await page.mouse.move(
+    resizerBounds.x + resizerBounds.width / 2,
+    resizerBounds.y + resizerBounds.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(320, resizerBounds.y + resizerBounds.height / 2);
+  await page.mouse.up();
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("yom-sidebar-width")))
+    .toBe("320");
+
   await page.locator("#settingsToggle").click();
   const settingsBounds = await page.locator("#sidebar").evaluate((sidebar) => {
     const card = document.querySelector(".settings-card");
@@ -213,6 +248,8 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   expect(settingsBounds.cardBottom).toBeLessThanOrEqual(
     settingsBounds.viewportHeight,
   );
+  await page.locator("#themeSelect").selectOption("dark");
+  await expect(page.locator("body")).toHaveAttribute("data-theme", "dark");
   await page.locator("#fontSizeSelect").selectOption("large");
   await page.locator("#contentWidthSelect").selectOption("wide");
   await expect(page.locator("body")).toHaveAttribute("data-font-size", "large");
@@ -222,7 +259,26 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   );
   await page.locator("#outlineToggle").uncheck();
   await expect(page.locator("body")).toHaveAttribute("data-outline", "hidden");
+  await page.reload();
+  await expect(page.locator("body")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("body")).toHaveAttribute("data-font-size", "large");
+  await expect(page.locator("body")).toHaveAttribute(
+    "data-content-width",
+    "wide",
+  );
+  await expect(page.locator("body")).toHaveAttribute("data-outline", "hidden");
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--sidebar-width",
+        ),
+      ),
+    )
+    .toBe("320px");
+  await page.locator("#settingsToggle").click();
   await page.locator("#resetDisplaySettings").click();
+  await expect(page.locator("#themeSelect")).toHaveValue("system");
   await expect(page.locator("body")).toHaveAttribute(
     "data-font-size",
     "medium",
@@ -282,6 +338,17 @@ test("updates an external Markdown tree without periodic DOM replacement", async
     "# Second\n\nA unique searchable phrase.\n",
   );
   await expect(page.locator("#treeRoot")).toContainText("second.md");
+
+  await mkdir(path.join(docsRoot, "guides"), { recursive: true });
+  await writeFile(path.join(docsRoot, "guides", "nested.md"), "# Nested\n");
+  const guidesFolder = page.locator("button.folder").filter({
+    hasText: "guides",
+  });
+  await expect(guidesFolder).toBeVisible();
+  await guidesFolder.click();
+  await expect(page.getByRole("button", { name: "nested.md" })).toBeHidden();
+  await guidesFolder.click();
+  await expect(page.getByRole("button", { name: "nested.md" })).toBeVisible();
 
   await page.keyboard.press("/");
   await expect(page.locator("#treeSearch")).toBeFocused();

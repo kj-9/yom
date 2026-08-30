@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": false,
+    "outDir": "lib",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "types": ["node", "vite/client"]
+  },
+  "include": [
+    "src/cli/**/*.ts",
+    "src/core/**/*.ts",
+    "src/dev/**/*.ts",
+    "src/site/**/*.tsx",
+    "src/site/state.ts"
+  ],
+  "exclude": ["src/site/main.ts", "tests/**"]
+}

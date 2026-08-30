@@ -16,13 +16,13 @@
   },
   "type": "module",
   "engines": {
-    "bun": ">=1.3.0"
+    "node": ">=22.12.0"
   },
   "files": [
     "bin",
     "index.html",
-    "src",
-    "vite.config.ts",
+    "lib",
+    "src/site",
     "README.md",
     "README.ja.md",
     "LICENSE"
@@ -31,21 +31,24 @@
     "yom": "bin/yom"
   },
   "exports": {
-    ".": "./src/core/config.ts"
+    ".": "./lib/core/config.js"
   },
   "scripts": {
+    "compile": "tsc --project tsconfig.build.json",
     "dev": "bun run ./src/cli/index.ts dev",
-    "build": "tsc --noEmit && bun run ./src/cli/index.ts build",
+    "build": "bun run check && bun run compile && node ./lib/cli/index.js build",
     "benchmark": "bun run ./scripts/benchmark.ts",
+    "check:assets": "bun run ./scripts/check-assets.ts",
     "preview": "bun run ./src/cli/index.ts preview",
     "test": "vitest run tests/unit",
     "test:e2e": "playwright test",
     "test:package": "vitest run tests/package",
     "check": "tsc --noEmit",
     "publish-alpha": "bun run release",
+    "prepack": "bun run check && bun run compile",
     "prepublishOnly": "bun run check && bun run test",
     "release": "bun run ./scripts/release.ts",
-    "format": "prettier --check \"bin\" \"index.html\" \"playwright.config.ts\" \"scripts/**/*.ts\" \"src/**/*.{ts,css}\" \"tests/**/*.ts\""
+    "format": "prettier --check \"bin\" \"index.html\" \"playwright.config.ts\" \"scripts/**/*.ts\" \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\""
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
@@ -60,6 +63,8 @@
     "cac": "^6.7.14",
     "markdown-it": "^14.1.0",
     "mermaid": "^11.12.0",
+    "preact": "^10.29.8",
+    "preact-render-to-string": "^6.7.0",
     "vite": "^7.1.3"
   }
 }

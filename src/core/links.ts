@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { assetRouteFromRelativePath } from "./routes";
+import { assetRouteFromRelativePath } from "./routes.js";
 
 export function rewriteRelativeLinks(
   content: string,

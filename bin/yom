@@ -1,5 +1,5 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
-import { main } from "../src/cli/index.ts";
+import { main } from "../lib/cli/index.js";
 
 await main(process.argv.slice(2));

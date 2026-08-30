@@ -27,7 +27,7 @@ afterEach(() => {
 describe("Vite cwd isolation", () => {
   it("ships the runtime files needed by dev and preview", () => {
     expect(packageJson.files).toEqual(
-      expect.arrayContaining(["bin", "index.html", "src", "vite.config.ts"]),
+      expect.arrayContaining(["bin", "index.html", "lib", "src/site"]),
     );
   });
 

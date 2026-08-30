@@ -1,0 +1,30 @@
+---
+import DefaultMarkdownContent from "@astrojs/starlight/components/MarkdownContent.astro";
+
+const { rawSource } = Astro.locals.starlightRoute.entry.data;
+---
+
+<section data-raw-toggle>
+  <button type="button" data-source-button aria-pressed="false">View source</button>
+  <div data-rendered-content>
+    <DefaultMarkdownContent><slot /></DefaultMarkdownContent>
+  </div>
+  <pre data-raw-source hidden><code>{rawSource}</code></pre>
+</section>
+
+<script>
+  document.querySelectorAll<HTMLElement>("[data-raw-toggle]").forEach((toggle) => {
+    const button = toggle.querySelector<HTMLButtonElement>("[data-source-button]");
+    const rendered = toggle.querySelector<HTMLElement>("[data-rendered-content]");
+    const source = toggle.querySelector<HTMLElement>("[data-raw-source]");
+    if (!button || !rendered || !source) return;
+
+    button.addEventListener("click", () => {
+      const showSource = source.hidden;
+      source.hidden = !showSource;
+      rendered.hidden = showSource;
+      button.ariaPressed = String(showSource);
+      button.textContent = showSource ? "View rendered" : "View source";
+    });
+  });
+</script>

@@ -3,21 +3,28 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 import { build as viteBuild } from "vite";
+import { renderToString } from "preact-render-to-string";
+import { h } from "preact";
 
-import { rewriteRelativeLinks } from "../core/links";
-import { renderMarkdownDocument } from "../core/markdown";
-import { resolveConfig, type ResolvedYomConfig } from "../core/config";
+import { rewriteRelativeLinks } from "../core/links.js";
+import { renderMarkdownDocument } from "../core/markdown.js";
+import { resolveConfig, type ResolvedYomConfig } from "../core/config.js";
 import {
   assetRouteFromRelativePath,
   dataRouteFromRelativePath,
   docRouteFromRelativePath,
   normalizeBasePath,
-} from "../core/routes";
+} from "../core/routes.js";
 import {
   buildSiteIndexFromPaths,
   listExistingPaths,
   type TreeNode,
-} from "../core/scan";
+} from "../core/scan.js";
+import {
+  buildSiteSnapshot,
+  serializeSitePayload,
+} from "../core/sitepayload.js";
+import { StaticSitePage } from "../site/static.js";
 
 const packageRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -49,8 +56,13 @@ export async function buildStaticSite(
 ): Promise<BuildResult> {
   const config = options.config ?? resolveConfig({});
   const basePath = normalizeBasePath(options.basePath ?? config.basePath);
+  const siteConfig = { ...config, basePath };
   const existingPaths = await listExistingPaths(options.root);
   const snapshot = buildSiteIndexFromPaths(options.root, existingPaths, config);
+  const sharedSnapshot = await buildSiteSnapshot(options.root, {
+    config: siteConfig,
+    mode: "static",
+  });
   const referencedAssets = new Set<string>();
   const warnings = new Set<string>();
   const searchEntries: Array<{ path: string; title: string; text: string }> =
@@ -120,12 +132,25 @@ export async function buildStaticSite(
       "utf-8",
     );
     await mkdir(path.dirname(documentPath), { recursive: true });
+    const sharedDocument = sharedSnapshot.documents.find(
+      (candidate) => candidate.path === markdownPath,
+    );
     await writeFile(
       documentPath,
       configureAppShell(appShell, {
         basePath,
         initialPath: markdownPath,
-        ...siteConfig(config),
+        documentPath: markdownPath,
+        snapshot: sharedSnapshot,
+        appMarkup: renderToString(
+          h(StaticSitePage, {
+            snapshot: sharedSnapshot,
+            document: sharedDocument ?? null,
+            title: config.title,
+            mode: "static",
+          }),
+        ),
+        ...siteConfigValues(config),
       }),
       "utf-8",
     );
@@ -147,7 +172,17 @@ export async function buildStaticSite(
     configureAppShell(appShell, {
       basePath,
       initialPath: snapshot.firstPath,
-      ...siteConfig(config),
+      documentPath: sharedSnapshot.firstPath,
+      snapshot: sharedSnapshot,
+      appMarkup: renderToString(
+        h(StaticSitePage, {
+          snapshot: sharedSnapshot,
+          document: sharedSnapshot.documents[0] ?? null,
+          title: config.title,
+          mode: "static",
+        }),
+      ),
+      ...siteConfigValues(config),
     }),
     "utf-8",
   );
@@ -157,7 +192,17 @@ export async function buildStaticSite(
       basePath,
       initialPath: null,
       notFound: true,
-      ...siteConfig(config),
+      documentPath: null,
+      snapshot: sharedSnapshot,
+      appMarkup: renderToString(
+        h(StaticSitePage, {
+          snapshot: sharedSnapshot,
+          document: null,
+          title: config.title,
+          mode: "static",
+        }),
+      ),
+      ...siteConfigValues(config),
     }),
     "utf-8",
   );
@@ -214,13 +259,17 @@ function configureAppShell(
     fontSize?: ResolvedYomConfig["fontSize"];
     contentWidth?: ResolvedYomConfig["contentWidth"];
     outline?: boolean;
+    appMarkup?: string;
+    documentPath?: string | null;
+    snapshot?: unknown;
   },
 ): string {
-  const serialized = JSON.stringify({ mode: "static", ...config }).replaceAll(
-    "<",
-    "\\u003c",
-  );
+  const serialized = serializeSitePayload({ mode: "static", ...config });
   return shell
+    .replace(
+      /<div id="app"><\/div>/u,
+      `<div id="app">${config.appMarkup ?? ""}</div>`,
+    )
     .replace(/<html lang="[^"]*">/u, `<html lang="${config.lang ?? "und"}">`)
     .replace(
       /<title>[^<]*<\/title>/u,
@@ -228,11 +277,12 @@ function configureAppShell(
     )
     .replace(
       /<script id="yom-config" type="application\/json">[\s\S]*?<\/script>/u,
-      `<script id="yom-config" type="application/json">${serialized}</script>`,
+      () =>
+        `<script id="yom-config" type="application/json">${serialized}</script>`,
     );
 }
 
-function siteConfig(config: ResolvedYomConfig) {
+function siteConfigValues(config: ResolvedYomConfig) {
   return {
     title: config.title,
     lang: config.lang,

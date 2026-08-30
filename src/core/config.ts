@@ -1,8 +1,8 @@
-import { access } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
 import path from "node:path";
 
-import { normalizeBasePath } from "./routes";
+import { loadConfigFromFile } from "vite";
+
+import { normalizeBasePath } from "./routes.js";
 
 export type YomConfig = {
   title?: string;
@@ -69,10 +69,13 @@ export async function loadYomConfig(options: {
   const configPath = await findConfigPath(options);
   if (configPath === null) return resolveConfig({}, null);
 
-  const module = (await import(pathToFileURL(configPath).href)) as {
-    default?: unknown;
-  };
-  const value = module.default;
+  const loaded = await loadConfigFromFile(
+    { command: "serve", mode: "production", isSsrBuild: false },
+    configPath,
+    options.cwd,
+    "silent",
+  );
+  const value = loaded?.config;
   if (!isPlainObject(value)) {
     throw new Error(`invalid yom config: ${configPath} must export an object`);
   }
@@ -160,9 +163,11 @@ async function findConfigPath(options: {
 }): Promise<string | null> {
   if (options.configPath !== undefined) {
     const explicit = path.resolve(options.cwd, options.configPath);
-    await access(explicit).catch(() => {
-      throw new Error(`yom config not found: ${explicit}`);
-    });
+    await import("node:fs/promises")
+      .then(({ access }) => access(explicit))
+      .catch(() => {
+        throw new Error(`yom config not found: ${explicit}`);
+      });
     return explicit;
   }
   const directories = [
@@ -202,7 +207,7 @@ function globMatches(relativePath: string, pattern: string): boolean {
 
 async function exists(filePath: string): Promise<boolean> {
   try {
-    await access(filePath);
+    await import("node:fs/promises").then(({ access }) => access(filePath));
     return true;
   } catch {
     return false;

@@ -110,7 +110,6 @@ async function bootstrap(): Promise<void> {
   state.tree = snapshot.tree;
   state.firstPath = snapshot.firstPath;
   state.lastTreeSignature = JSON.stringify(snapshot.tree);
-  requireElement<HTMLElement>("#rootLabel").textContent = snapshot.root;
   renderTree(snapshot.tree);
 
   const initialPath = config.notFound
@@ -445,7 +444,7 @@ async function openDocument(
   }
 
   renderCurrentDocument(payload.path);
-  setStatus(payload.path);
+  setStatus(config.mode === "dev" ? "Watching" : "Static");
 
   if (state.tree !== null) {
     renderTree(state.tree);
@@ -465,7 +464,6 @@ async function refreshContent(
       state.lastTreeSignature = signature;
       state.tree = snapshot.tree;
       state.firstPath = snapshot.firstPath;
-      requireElement<HTMLElement>("#rootLabel").textContent = snapshot.root;
       renderTree(snapshot.tree);
       if (state.currentPath !== null) {
         renderPagination(state.currentPath);
@@ -1310,10 +1308,7 @@ function renderShell(): string {
     <div class="layout">
       <aside id="sidebar">
         <div class="sidebar-header">
-          <div>
-            <h1 class="brand">${escapeHtml(config.title ?? "yom")}</h1>
-            <p class="sub" id="rootLabel"></p>
-          </div>
+          <h1 class="brand">${escapeHtml(config.title ?? "yom")}</h1>
           <div class="sidebar-meta">
             <div class="status" id="statusBadge" data-state="ready" aria-live="polite">
               <span class="dot"></span><span id="statusText">${config.mode === "dev" ? "Watching" : "Static"}</span>
