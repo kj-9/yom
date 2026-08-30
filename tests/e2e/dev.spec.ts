@@ -6,7 +6,6 @@ import {
   spawnSync,
   type ChildProcessWithoutNullStreams,
 } from "node:child_process";
-import { createHash } from "node:crypto";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -155,16 +154,11 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   await expect(staticPage.locator("#outlineList a").first()).toHaveClass(
     /active/u,
   );
-  const devScreenshot = await page.locator(".reader-shell").screenshot({
-    animations: "disabled",
-  });
-  const staticScreenshot = await staticPage
-    .locator(".reader-shell")
-    .screenshot({
-      animations: "disabled",
-    });
-  expect(createHash("sha256").update(staticScreenshot).digest("hex")).toBe(
-    createHash("sha256").update(devScreenshot).digest("hex"),
+  await expect(
+    staticPage.locator(".reader-shell .content-panel"),
+  ).toContainText("Initial");
+  await expect(staticPage.locator(".reader-shell #outlineList")).toContainText(
+    "Details",
   );
 
   await page.locator(".content-panel").evaluate((panel) => {

@@ -117,10 +117,16 @@ function HydratedPage(props: {
         snapshot,
         new URL(link.href, window.location.origin).pathname,
       );
-      if (next === null) return;
+      if (next === null) {
+        if (new URL(link.href, window.location.origin).hash) {
+          setActiveHeading(headingFromHash(new URL(link.href).hash));
+        }
+        return;
+      }
       event.preventDefault();
       history.pushState({}, "", link.href);
       setCurrentPath(next.path);
+      setActiveHeading(headingFromHash(new URL(link.href).hash));
       window.scrollTo(0, 0);
     };
     const onPopState = (): void => {

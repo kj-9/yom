@@ -28,8 +28,15 @@ export function enhanceDocumentControls(root: ParentNode): void {
     link.addEventListener("click", async () => {
       const url = new URL(window.location.href);
       url.hash = heading.id;
-      await navigator.clipboard.writeText(url.href);
       history.replaceState({}, "", url);
+      for (const outlineLink of document.querySelectorAll("#outlineList a")) {
+        outlineLink.classList.toggle(
+          "active",
+          outlineLink.getAttribute("data-heading-id") === heading.id,
+        );
+      }
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+      await navigator.clipboard.writeText(url.href).catch(() => {});
     });
     heading.append(link);
   }
