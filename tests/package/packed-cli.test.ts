@@ -50,7 +50,7 @@ beforeAll(async () => {
       "index.html",
       "lib/cli/index.js",
       "lib/core/config.js",
-      "src/site/main.ts",
+      "src/site/client.tsx",
     ]),
   );
 

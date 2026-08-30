@@ -34,7 +34,7 @@
     ".": "./lib/core/config.js"
   },
   "scripts": {
-    "compile": "tsc --project tsconfig.build.json",
+    "compile": "node ./scripts/compile.mjs",
     "dev": "bun run ./src/cli/index.ts dev",
     "build": "bun run check && bun run compile && node ./lib/cli/index.js build",
     "benchmark": "bun run ./scripts/benchmark.ts",

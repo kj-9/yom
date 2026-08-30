@@ -17,22 +17,21 @@ import { defaultReadingPreferences, type ReadingPreferences } from "./state.js";
 
 const payload = readPayload();
 
-if (payload.snapshot !== undefined) {
-  const document = documentFromPayload(payload);
-  const root = documentRoot();
-  hydrate(<HydratedPage payload={payload} document={document} />, root);
-  if (document?.html.includes("language-mermaid")) {
-    void import("./mermaid.js").then(({ renderMermaidInDocument }) =>
-      renderMermaidInDocument(root),
-    );
-  }
-  void import("./enhancements.js").then(({ enhanceDocumentControls }) =>
-    enhanceDocumentControls(root),
-  );
-} else {
-  // Dev keeps the legacy interactive entry until its controls are migrated.
-  void import("./main.js");
+if (payload.snapshot === undefined) {
+  throw new Error("yom site payload is missing");
 }
+
+const initialDocument = documentFromPayload(payload);
+const root = documentRoot();
+hydrate(<HydratedPage payload={payload} document={initialDocument} />, root);
+if (initialDocument?.html.includes("language-mermaid")) {
+  void import("./mermaid.js").then(({ renderMermaidInDocument }) =>
+    renderMermaidInDocument(root),
+  );
+}
+void import("./enhancements.js").then(({ enhanceDocumentControls }) =>
+  enhanceDocumentControls(root),
+);
 
 function HydratedPage(props: {
   payload: NonNullable<typeof payload>;
