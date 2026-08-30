@@ -25,6 +25,7 @@ import {
   serializeSitePayload,
 } from "../core/sitepayload.js";
 import { StaticSitePage } from "../site/static.js";
+import { createYomViteConfig } from "../dev/vite.js";
 
 const packageRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -69,7 +70,8 @@ export async function buildStaticSite(
     [];
 
   await viteBuild({
-    configFile: path.join(packageRoot, "vite.config.ts"),
+    ...createYomViteConfig(),
+    configFile: false,
     root: packageRoot,
     base: basePath,
     logLevel: "silent",
