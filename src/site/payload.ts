@@ -5,6 +5,7 @@ export type ClientPayload = {
   title?: string;
   snapshot?: SiteSnapshot;
   documentPath?: string | null;
+  notFound?: boolean;
 };
 
 export function parseClientPayload(

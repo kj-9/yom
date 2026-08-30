@@ -180,6 +180,7 @@ export async function buildStaticSite(
           document: sharedSnapshot.documents[0] ?? null,
           title: config.title,
           mode: "static",
+          notFound: true,
         }),
       ),
       ...siteConfigValues(config),

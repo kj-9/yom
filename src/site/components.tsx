@@ -39,6 +39,7 @@ export function DocumentTree(props: {
         ) : (
           <li key={node.path}>
             <a
+              role="button"
               href={
                 node.path === props.currentPath
                   ? "#docRoot"

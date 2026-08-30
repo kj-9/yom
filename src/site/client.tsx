@@ -38,20 +38,27 @@ function HydratedPage(props: {
   payload: NonNullable<typeof payload>;
   document: ReturnType<typeof documentFromPayload>;
 }): ComponentChildren {
-  const snapshot = props.payload.snapshot!;
+  const [snapshot, setSnapshot] = useState(props.payload.snapshot!);
   const [currentPath, setCurrentPath] = useState(
     props.document?.path ?? snapshot.firstPath,
   );
   const currentDocument = useMemo(
     () =>
-      snapshot.documents.find((candidate) => candidate.path === currentPath) ??
-      null,
-    [snapshot, currentPath],
+      props.payload.notFound
+        ? null
+        : (snapshot.documents.find(
+            (candidate) => candidate.path === currentPath,
+          ) ?? null),
+    [snapshot, currentPath, props.payload.notFound],
   );
   const [preferences, setPreferences] = useState<ReadingPreferences>(
     defaultReadingPreferences,
   );
   const [viewMode, setViewMode] = useState<"rendered" | "raw">("rendered");
+  const [collapsedPaths, setCollapsedPaths] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [searchQuery, setSearchQuery] = useState("");
   const [activeHeading, setActiveHeading] = useState<string | null>(() =>
     headingFromHash(window.location.hash),
   );
@@ -72,6 +79,42 @@ function HydratedPage(props: {
       `${preferences.sidebarWidth}px`,
     );
   }, [preferences]);
+  useEffect(() => {
+    const selected = headingFromHash(window.location.hash) ?? activeHeading;
+    for (const link of document.querySelectorAll("#outlineList a")) {
+      link.classList.toggle(
+        "active",
+        link.getAttribute("data-heading-id") === selected,
+      );
+    }
+  }, [activeHeading, currentPath]);
+  useEffect(() => {
+    if (props.payload.mode !== "dev") return;
+    const events = new EventSource("/events");
+    const refresh = async (): Promise<void> => {
+      const response = await fetch("/api/site");
+      if (response.ok) setSnapshot(await response.json());
+    };
+    events.onmessage = () => void refresh();
+    events.onopen = () => void refresh();
+    return () => events.close();
+  }, [props.payload.mode]);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey)
+        return;
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement
+      )
+        return;
+      event.preventDefault();
+      document.getElementById("treeSearch")?.focus();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
   useEffect(() => {
     const resizer = document.getElementById("sidebarResizer");
     if (!(resizer instanceof HTMLElement)) return;
@@ -156,6 +199,7 @@ function HydratedPage(props: {
       document={currentDocument}
       title={props.payload.title ?? "yom"}
       mode={props.payload.mode ?? "static"}
+      notFound={props.payload.notFound}
       preferences={preferences}
       onPreferencesChange={onPreferencesChange}
       viewMode={viewMode}
@@ -167,6 +211,17 @@ function HydratedPage(props: {
         document.getElementById(id)?.scrollIntoView({ behavior: "auto" });
         setActiveHeading(id);
       }}
+      collapsedPaths={collapsedPaths}
+      onToggleDirectory={(path) =>
+        setCollapsedPaths((current) => {
+          const next = new Set(current);
+          if (next.has(path)) next.delete(path);
+          else next.add(path);
+          return next;
+        })
+      }
+      searchQuery={searchQuery}
+      onSearchQueryChange={setSearchQuery}
     />
   );
 }
