@@ -55,13 +55,17 @@ export class DevContentRepository {
   async getSiteSnapshot(): Promise<SiteSnapshot> {
     await this.ready;
     await this.updates;
+    const presentPaths = new Set(await listExistingPaths(this.root));
+    const documentOrder = [
+      ...[...this.existingPaths].filter((path) => presentPaths.has(path)),
+      ...[...presentPaths].filter((path) => !this.existingPaths.has(path)),
+    ].filter((path) => path.endsWith(".md"));
+    this.existingPaths = presentPaths;
     return buildSiteSnapshot(this.root, {
       config: this.config,
       mode: "dev",
       existingPaths: this.existingPaths,
-      documentOrder: [...this.existingPaths].filter((path) =>
-        path.endsWith(".md"),
-      ),
+      documentOrder,
     });
   }
 

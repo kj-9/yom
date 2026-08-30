@@ -103,7 +103,9 @@ export async function run(options: CliOptions): Promise<void> {
       server: {
         host: options.host,
         port: options.port,
-        open: options.siteConfig?.open ?? false,
+        // Starting a local server must never take focus by opening a browser.
+        // Consumers can open its printed URL themselves.
+        open: false,
       },
     });
     await server.listen();

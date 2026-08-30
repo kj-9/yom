@@ -124,7 +124,18 @@ function HydratedPage(props: {
     const events = new EventSource("/events");
     const refresh = async (): Promise<void> => {
       const response = await fetch("/api/site");
-      if (response.ok) setSnapshot(await response.json());
+      if (!response.ok) return;
+      const next = (await response.json()) as typeof snapshot;
+      setSnapshot((current) =>
+        JSON.stringify(current) === JSON.stringify(next) ? current : next,
+      );
+      if (
+        !next.documents.some(
+          (document) => document.path === currentPathRef.current,
+        )
+      ) {
+        setCurrentPath(next.firstPath);
+      }
     };
     events.onmessage = (event) => {
       const update = JSON.parse(event.data) as { kind?: string; path?: string };
@@ -144,7 +155,11 @@ function HydratedPage(props: {
       void refresh();
     };
     events.onerror = () => setStatusText("Reconnecting");
-    return () => events.close();
+    const recovery = window.setInterval(() => void refresh(), 1_000);
+    return () => {
+      events.close();
+      window.clearInterval(recovery);
+    };
   }, [props.payload.mode]);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {

@@ -46,6 +46,9 @@ describe("DevContentRepository", () => {
     await expect(repository.getDocument("README.md")).rejects.toThrow(
       "missing markdown file",
     );
+    await expect(repository.getSiteSnapshot()).resolves.toMatchObject({
+      documents: [expect.objectContaining({ path: "guide.md" })],
+    });
   });
 
   it("rejects newly added gitignored paths and reloads ignore changes", async () => {

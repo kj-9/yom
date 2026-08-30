@@ -80,7 +80,6 @@ Options available through `yom --help`:
 - `--port`: bind port for dev or preview
 - `--base`: public base path used by build and preview
 - `--config`: explicit path to `yom.config.ts`
-- `--open`: open the browser when dev starts
 
 ## Configuration
 

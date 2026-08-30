@@ -79,7 +79,6 @@ yom preview --host 127.0.0.1 --port 4173 --base / --out-dir dist
 - `--port`: dev / preview の待受ポート
 - `--base`: build / previewで使用する公開ベースパス
 - `--config`: `yom.config.ts`を明示するパス
-- `--open`: dev起動時にブラウザを開く
 
 ## 設定
 

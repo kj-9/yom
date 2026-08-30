@@ -25,7 +25,9 @@ export function createYomViteConfig(
     // requesting its prebundle while opening an ordinary Markdown document.
     optimizeDeps: { exclude: ["mermaid"] },
     plugins: [createYomDevPlugin(contentRoot, config)],
-    server: { host: "127.0.0.1", port: 4173 },
+    // Markdown content uses yom's SSE snapshots; Vite HMR would race those
+    // watcher events and reload the whole reader before the snapshot arrives.
+    server: { host: "127.0.0.1", port: 4173, hmr: false },
     preview: { host: "127.0.0.1", port: 4173 },
   };
 }
