@@ -61,6 +61,8 @@ export type SitePayloadOptions = {
     "include" | "exclude" | "initialPage" | "order" | "basePath" | "lang"
   >;
   mode?: "static" | "dev";
+  existingPaths?: Iterable<string>;
+  documentOrder?: readonly string[];
 };
 
 /** Serializes initial state for an inert JSON script without script-breakout characters. */
@@ -82,13 +84,20 @@ export async function buildSiteSnapshot(
   options: SitePayloadOptions,
 ): Promise<SiteSnapshot> {
   const resolvedRoot = path.resolve(root);
-  const existingPaths = await listExistingPaths(resolvedRoot);
+  const existingPaths = new Set(
+    options.existingPaths ?? (await listExistingPaths(resolvedRoot)),
+  );
   const index = buildSiteIndexFromPaths(
     resolvedRoot,
     existingPaths,
     options.config,
   );
-  const paths = collectDocumentPaths(index.tree);
+  const discoveredPaths = collectDocumentPaths(index.tree);
+  const paths = options.documentOrder
+    ? options.documentOrder.filter((candidate) =>
+        discoveredPaths.includes(candidate),
+      )
+    : discoveredPaths;
   const documents = await Promise.all(
     paths.map(async (relativePath, index) => {
       const document = await readMarkdownDocument(

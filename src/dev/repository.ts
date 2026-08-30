@@ -55,7 +55,14 @@ export class DevContentRepository {
   async getSiteSnapshot(): Promise<SiteSnapshot> {
     await this.ready;
     await this.updates;
-    return buildSiteSnapshot(this.root, { config: this.config, mode: "dev" });
+    return buildSiteSnapshot(this.root, {
+      config: this.config,
+      mode: "dev",
+      existingPaths: this.existingPaths,
+      documentOrder: [...this.existingPaths].filter((path) =>
+        path.endsWith(".md"),
+      ),
+    });
   }
 
   async getDocument(relativePath: string): Promise<DocumentPayload> {

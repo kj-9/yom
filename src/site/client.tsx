@@ -1,7 +1,7 @@
 import "./styles.css";
 
 import { hydrate, type ComponentChildren } from "preact";
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { StaticSitePage } from "./static.js";
 import {
@@ -59,14 +59,45 @@ function HydratedPage(props: {
     () => new Set(),
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusText, setStatusText] = useState(
+    props.payload.mode === "dev" ? "Watching" : "Static",
+  );
+  const currentPathRef = useRef(currentPath);
+  currentPathRef.current = currentPath;
   const [activeHeading, setActiveHeading] = useState<string | null>(() =>
     headingFromHash(window.location.hash),
   );
+  useEffect(() => {
+    if (!snapshot.documents.some((document) => document.path === currentPath)) {
+      setCurrentPath(snapshot.firstPath);
+    }
+  }, [snapshot, currentPath]);
   useEffect(() => {
     const stored = readReadingPreferences(window.localStorage);
     if (Object.keys(stored).length > 0)
       setPreferences((current) => ({ ...current, ...stored }));
   }, []);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== "[" && event.key !== "]") return;
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement
+      )
+        return;
+      const index = snapshot.documents.findIndex(
+        (item) => item.path === currentPathRef.current,
+      );
+      const next = snapshot.documents[index + (event.key === "[" ? -1 : 1)];
+      if (!next) return;
+      event.preventDefault();
+      history.pushState({}, "", next.route);
+      setCurrentPath(next.path);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [snapshot]);
   useEffect(() => {
     const body = document.body;
     body.dataset.theme = preferences.theme;
@@ -95,8 +126,24 @@ function HydratedPage(props: {
       const response = await fetch("/api/site");
       if (response.ok) setSnapshot(await response.json());
     };
-    events.onmessage = () => void refresh();
-    events.onopen = () => void refresh();
+    events.onmessage = (event) => {
+      const update = JSON.parse(event.data) as { kind?: string; path?: string };
+      if (update.kind === "asset" && update.path) {
+        for (const image of document.querySelectorAll<HTMLImageElement>(
+          `#docRoot img[src*="${CSS.escape(update.path)}"]`,
+        )) {
+          const url = new URL(image.src);
+          url.searchParams.set("v", String(Date.now()));
+          image.src = url.href;
+        }
+      }
+      void refresh();
+    };
+    events.onopen = () => {
+      setStatusText("Watching");
+      void refresh();
+    };
+    events.onerror = () => setStatusText("Reconnecting");
     return () => events.close();
   }, [props.payload.mode]);
   useEffect(() => {
@@ -222,6 +269,7 @@ function HydratedPage(props: {
       }
       searchQuery={searchQuery}
       onSearchQueryChange={setSearchQuery}
+      statusText={statusText}
     />
   );
 }

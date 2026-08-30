@@ -21,6 +21,7 @@ export function StaticSitePage(props: {
   onToggleDirectory?: (path: string) => void;
   searchQuery?: string;
   onSearchQueryChange?: (query: string) => void;
+  statusText?: string;
 }): ComponentChildren {
   const {
     snapshot,
@@ -38,6 +39,7 @@ export function StaticSitePage(props: {
     onToggleDirectory,
     searchQuery = "",
     onSearchQueryChange,
+    statusText,
   } = props;
   return (
     <>
@@ -52,7 +54,7 @@ export function StaticSitePage(props: {
               <div class="status" data-state="ready" aria-live="polite">
                 <span class="dot" />
                 <span id="statusText">
-                  {mode === "dev" ? "Watching" : "Static"}
+                  {statusText ?? (mode === "dev" ? "Watching" : "Static")}
                 </span>
               </div>
             </div>
