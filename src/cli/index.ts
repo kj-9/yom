@@ -103,7 +103,7 @@ export async function run(options: CliOptions): Promise<void> {
       server: {
         host: options.host,
         port: options.port,
-        open: options.siteConfig?.open,
+        open: options.siteConfig?.open ?? false,
       },
     });
     await server.listen();
