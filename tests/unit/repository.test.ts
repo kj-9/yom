@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { DevContentRepository } from "../../src/dev/repository";
+import { buildSiteSnapshot } from "../../src/core/sitepayload";
 import { resolveConfig } from "../../src/core/config";
 
 const roots: string[] = [];
@@ -17,6 +18,20 @@ afterEach(async () => {
 });
 
 describe("DevContentRepository", () => {
+  it("uses the same initial navigation order as static builds", async () => {
+    const root = await createRoot();
+    for (const file of ["z.md", "README.md", "guides/nested.md", "a.md"]) {
+      await write(root, file, `# ${file}\n`);
+    }
+    const config = resolveConfig({});
+    const dev = await new DevContentRepository(root, config).getSiteSnapshot();
+    const built = await buildSiteSnapshot(root, { config, mode: "static" });
+    expect(
+      dev.documents.map(({ path, pagination }) => ({ path, pagination })),
+    ).toEqual(
+      built.documents.map(({ path, pagination }) => ({ path, pagination })),
+    );
+  });
   it("updates its cached paths from watcher events", async () => {
     const root = await createRoot();
     await write(root, "README.md", "# Initial\n");

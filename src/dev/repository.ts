@@ -19,7 +19,11 @@ import {
   type ResolvedYomConfig,
 } from "../core/config.js";
 import { renderMarkdownDocument } from "../core/markdown.js";
-import { buildSiteSnapshot, type SiteSnapshot } from "../core/sitepayload.js";
+import {
+  buildSiteSnapshot,
+  collectDocumentPaths,
+  type SiteSnapshot,
+} from "../core/sitepayload.js";
 
 export type SearchResult = {
   path: string;
@@ -173,14 +177,12 @@ export class DevContentRepository {
   private async initialize(): Promise<void> {
     this.searchCache.clear();
     this.existingPaths = await listExistingPaths(this.root);
-    this.documentOrder = [...this.existingPaths].filter((path) =>
-      path.endsWith(".md"),
-    );
     this.snapshot = buildSiteIndexFromPaths(
       this.root,
       this.existingPaths,
       this.config,
     );
+    this.documentOrder = collectDocumentPaths(this.snapshot.tree);
   }
 
   private async searchDocument(relativePath: string) {

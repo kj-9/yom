@@ -214,7 +214,7 @@ function documentReference(document: DocumentPayload): DocumentReference {
   };
 }
 
-function collectDocumentPaths(node: TreeNode): string[] {
+export function collectDocumentPaths(node: TreeNode): string[] {
   if (node.type === "file") return [node.path];
   return node.children.flatMap(collectDocumentPaths);
 }
