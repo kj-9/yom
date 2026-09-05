@@ -36,6 +36,11 @@ describe("Vite cwd isolation", () => {
     const docsRoot = path.join(callerRoot, "docs");
     await mkdir(docsRoot);
     await writeFile(path.join(docsRoot, "README.md"), "# Isolated docs\n");
+    await mkdir(path.join(docsRoot, "guides"));
+    await writeFile(
+      path.join(docsRoot, "guides", "nested.md"),
+      "# Nested $& guide\n",
+    );
     await writeFile(
       path.join(callerRoot, "vite.config.ts"),
       'throw new Error("caller vite config must not be loaded");\n',
@@ -78,6 +83,20 @@ describe("Vite cwd isolation", () => {
     expect(output).not.toContain("caller vite config must not be loaded");
     expect(html).toContain('<html lang="ja">');
     expect(html).toContain("<title>Caller docs</title>");
+    expect(html).toContain('id="docRoot"');
+    expect(html).toContain('aria-label="Documents"');
+    expect(html).toContain('aria-label="On this page"');
+    const payload = JSON.parse(
+      html.match(
+        /<script id="yom-config" type="application\/json">([\s\S]*?)<\/script>/u,
+      )![1],
+    );
+    expect(payload.documentPath).toBe("guides/nested.md");
+    expect(html).toContain("Nested $&amp; guide");
+    const direct = await fetch(`http://127.0.0.1:${port}/docs/README.html`);
+    const directHtml = await direct.text();
+    expect(directHtml).toContain('"documentPath":"README.md"');
+    expect(directHtml).toContain('id="isolated-docs"');
   }, 15_000);
 
   it("previews the caller project's dist without loading its Vite config", async () => {

@@ -29,6 +29,16 @@ export function documentFromPayload(payload: ClientPayload) {
 }
 
 export function documentFromLocation(snapshot: SiteSnapshot, pathname: string) {
+  const basePath = snapshot.basePath.endsWith("/")
+    ? snapshot.basePath
+    : `${snapshot.basePath}/`;
+  if (pathname === basePath && snapshot.firstPath !== null) {
+    return (
+      snapshot.documents.find(
+        (candidate) => candidate.path === snapshot.firstPath,
+      ) ?? null
+    );
+  }
   return (
     snapshot.documents.find(
       (candidate) =>

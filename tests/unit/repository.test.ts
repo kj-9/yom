@@ -38,11 +38,13 @@ describe("DevContentRepository", () => {
     });
 
     await rm(path.join(root, "README.md"));
-    await repository.apply({
-      kind: "document",
-      action: "remove",
-      path: "README.md",
-    });
+    await expect(
+      repository.apply({
+        kind: "document",
+        action: "remove",
+        path: "README.md",
+      }),
+    ).resolves.toBe(true);
     await expect(repository.getDocument("README.md")).rejects.toThrow(
       "missing markdown file",
     );

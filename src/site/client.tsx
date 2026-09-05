@@ -1,8 +1,9 @@
 import "./styles.css";
 
 import { hydrate, type ComponentChildren } from "preact";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
+import { SiteProvider, useSite } from "./context.js";
 import { StaticSitePage } from "./static.js";
 import {
   documentFromLocation,
@@ -13,7 +14,7 @@ import {
   readReadingPreferences,
   writeReadingPreferences,
 } from "./preferences.js";
-import { defaultReadingPreferences, type ReadingPreferences } from "./state.js";
+import type { ReadingPreferences, SiteAction } from "./state.js";
 
 const payload = readPayload();
 
@@ -24,57 +25,71 @@ if (payload.snapshot === undefined) {
 const initialDocument = documentFromPayload(payload);
 const root = documentRoot();
 hydrate(<HydratedPage payload={payload} document={initialDocument} />, root);
-if (initialDocument?.html.includes("language-mermaid")) {
-  void import("./mermaid.js").then(({ renderMermaidInDocument }) =>
-    renderMermaidInDocument(root),
-  );
-}
-void import("./enhancements.js").then(({ enhanceDocumentControls }) =>
-  enhanceDocumentControls(root),
-);
 
 function HydratedPage(props: {
   payload: NonNullable<typeof payload>;
   document: ReturnType<typeof documentFromPayload>;
 }): ComponentChildren {
-  const [snapshot, setSnapshot] = useState(props.payload.snapshot!);
-  const [currentPath, setCurrentPath] = useState(
-    props.document?.path ?? snapshot.firstPath,
+  const snapshot = props.payload.snapshot!;
+  return (
+    <SiteProvider
+      snapshot={snapshot}
+      currentPath={props.document?.path ?? snapshot.firstPath}
+    >
+      <HydratedContent payload={props.payload} />
+    </SiteProvider>
   );
-  const currentDocument = useMemo(
-    () =>
-      props.payload.notFound
-        ? null
-        : (snapshot.documents.find(
-            (candidate) => candidate.path === currentPath,
-          ) ?? null),
-    [snapshot, currentPath, props.payload.notFound],
-  );
-  const [preferences, setPreferences] = useState<ReadingPreferences>(
-    defaultReadingPreferences,
-  );
-  const [viewMode, setViewMode] = useState<"rendered" | "raw">("rendered");
-  const [collapsedPaths, setCollapsedPaths] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
+}
+
+function HydratedContent(props: {
+  payload: NonNullable<typeof payload>;
+}): ComponentChildren {
+  const { state, dispatch } = useSite();
+  const { snapshot, currentPath, preferences, viewMode, collapsedPaths } =
+    state;
+  const currentDocument = props.payload.notFound
+    ? null
+    : (snapshot.documents.find((candidate) => candidate.path === currentPath) ??
+      null);
+  useEffect(() => {
+    if (currentDocument === null || viewMode === "raw") return;
+    let cancelled = false;
+    void import("./enhancements.js").then(({ enhanceDocumentControls }) => {
+      if (!cancelled) enhanceDocumentControls(root);
+    });
+    if (!currentDocument.html.includes("language-mermaid")) {
+      return () => {
+        cancelled = true;
+      };
+    }
+    void import("./mermaid.js").then(({ renderMermaidInDocument }) => {
+      if (!cancelled) void renderMermaidInDocument(root);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentDocument, viewMode]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusText, setStatusText] = useState(
     props.payload.mode === "dev" ? "Watching" : "Static",
   );
   const currentPathRef = useRef(currentPath);
   currentPathRef.current = currentPath;
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const knownDocumentsRef = useRef(
+    new Map(snapshot.documents.map((document) => [document.path, document])),
+  );
+  for (const document of snapshot.documents) {
+    knownDocumentsRef.current.set(document.path, document);
+  }
   const [activeHeading, setActiveHeading] = useState<string | null>(() =>
     headingFromHash(window.location.hash),
   );
   useEffect(() => {
-    if (!snapshot.documents.some((document) => document.path === currentPath)) {
-      setCurrentPath(snapshot.firstPath);
-    }
-  }, [snapshot, currentPath]);
-  useEffect(() => {
     const stored = readReadingPreferences(window.localStorage);
     if (Object.keys(stored).length > 0)
-      setPreferences((current) => ({ ...current, ...stored }));
+      dispatch({ type: "set-preferences", preferences: stored });
   }, []);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -92,7 +107,7 @@ function HydratedPage(props: {
       if (!next) return;
       event.preventDefault();
       history.pushState({}, "", next.route);
-      setCurrentPath(next.path);
+      dispatch({ type: "navigate", path: next.path });
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
@@ -121,43 +136,108 @@ function HydratedPage(props: {
   useEffect(() => {
     if (props.payload.mode !== "dev") return;
     const events = new EventSource("/events");
-    const refresh = async (): Promise<void> => {
-      const response = await fetch("/api/site", { cache: "no-store" });
-      if (!response.ok) return;
-      const next = (await response.json()) as typeof snapshot;
-      setSnapshot((current) =>
-        JSON.stringify(current) === JSON.stringify(next) ? current : next,
-      );
-      if (
-        !next.documents.some(
-          (document) => document.path === currentPathRef.current,
-        )
-      ) {
-        setCurrentPath(next.firstPath);
+    let refreshQueue = Promise.resolve();
+    const performRefresh = async (
+      event?: Extract<SiteAction, { type: "dev-event" }>["event"],
+      preferredPath?: string,
+    ): Promise<void> => {
+      try {
+        const response = await fetch("/api/site", { cache: "no-store" });
+        if (!response.ok) return;
+        const next = (await response.json()) as typeof snapshot;
+        const currentState = stateRef.current;
+        const activeDocument =
+          currentState.snapshot.documents.find(
+            (document) => document.path === currentState.currentPath,
+          ) ??
+          (currentState.currentPath === null
+            ? undefined
+            : knownDocumentsRef.current.get(currentState.currentPath));
+        if (
+          preferredPath !== undefined ||
+          (activeDocument !== undefined &&
+            !next.documents.some(
+              (document) => document.path === activeDocument.path,
+            ))
+        ) {
+          const adjacentPath =
+            preferredPath ??
+            activeDocument?.pagination.next?.path ??
+            activeDocument?.pagination.previous?.path;
+          const destination =
+            next.documents.find((document) => document.path === adjacentPath) ??
+            next.documents.find((document) => document.path === next.firstPath);
+          if (destination !== undefined) {
+            history.replaceState({}, "", destination.route);
+          }
+          dispatch(
+            event === undefined
+              ? {
+                  type: "snapshot-received",
+                  snapshot: next,
+                  currentPath: destination?.path,
+                }
+              : {
+                  type: "dev-event",
+                  event,
+                  snapshot: next,
+                  currentPath: destination?.path,
+                },
+          );
+          return;
+        }
+        dispatch(
+          event === undefined
+            ? { type: "snapshot-received", snapshot: next }
+            : { type: "dev-event", event, snapshot: next },
+        );
+      } catch {
+        setStatusText("Reconnecting");
       }
     };
+    const refresh = (
+      event?: Extract<SiteAction, { type: "dev-event" }>["event"],
+      preferredPath?: string,
+    ): Promise<void> => {
+      refreshQueue = refreshQueue.then(() =>
+        performRefresh(event, preferredPath),
+      );
+      return refreshQueue;
+    };
     events.onmessage = (event) => {
-      const update = JSON.parse(event.data) as { kind?: string; path?: string };
-      if (update.kind === "asset" && update.path) {
+      const update = JSON.parse(event.data) as {
+        action?: unknown;
+        kind?: unknown;
+        path?: unknown;
+      };
+      const devEvent = isDevEvent(update) ? update : undefined;
+      if (devEvent?.kind === "asset" && devEvent.path) {
         for (const image of document.querySelectorAll<HTMLImageElement>(
-          `#docRoot img[src*="${CSS.escape(update.path)}"]`,
+          `#docRoot img[src*="${CSS.escape(devEvent.path)}"]`,
         )) {
           const url = new URL(image.src);
           url.searchParams.set("v", String(Date.now()));
           image.src = url.href;
         }
       }
-      void refresh();
+      const deletedDocument =
+        devEvent?.kind === "document" &&
+        devEvent.action === "remove" &&
+        devEvent.path === currentPathRef.current
+          ? knownDocumentsRef.current.get(devEvent.path)
+          : undefined;
+      const preferredPath =
+        deletedDocument?.pagination.next?.path ??
+        deletedDocument?.pagination.previous?.path;
+      void refresh(devEvent, preferredPath);
     };
     events.onopen = () => {
       setStatusText("Watching");
       void refresh();
     };
     events.onerror = () => setStatusText("Reconnecting");
-    const recovery = window.setInterval(() => void refresh(), 1_000);
     return () => {
       events.close();
-      window.clearInterval(recovery);
     };
   }, [props.payload.mode]);
   useEffect(() => {
@@ -187,7 +267,10 @@ function HydratedPage(props: {
       const onPointerMove = (move: PointerEvent): void => {
         const left = layout.getBoundingClientRect().left;
         const sidebarWidth = Math.min(560, Math.max(220, move.clientX - left));
-        setPreferences((current) => ({ ...current, sidebarWidth }));
+        dispatch({
+          type: "set-preferences",
+          preferences: { sidebarWidth },
+        });
         writeReadingPreferences(window.localStorage, { sidebarWidth });
       };
       const onPointerUp = (): void => {
@@ -229,13 +312,13 @@ function HydratedPage(props: {
       }
       event.preventDefault();
       history.pushState({}, "", link.href);
-      setCurrentPath(next.path);
+      dispatch({ type: "navigate", path: next.path });
       setActiveHeading(headingFromHash(new URL(link.href).hash));
       window.scrollTo(0, 0);
     };
     const onPopState = (): void => {
       const next = documentFromLocation(snapshot, window.location.pathname);
-      if (next !== null) setCurrentPath(next.path);
+      if (next !== null) dispatch({ type: "navigate", path: next.path });
       setActiveHeading(headingFromHash(window.location.hash));
     };
     const onHashChange = (): void => {
@@ -249,9 +332,9 @@ function HydratedPage(props: {
       window.removeEventListener("popstate", onPopState);
       window.removeEventListener("hashchange", onHashChange);
     };
-  }, [snapshot]);
+  }, [snapshot, dispatch]);
   const onPreferencesChange = (patch: Partial<ReadingPreferences>): void => {
-    setPreferences((current) => ({ ...current, ...patch }));
+    dispatch({ type: "set-preferences", preferences: patch });
     writeReadingPreferences(window.localStorage, patch);
   };
   return (
@@ -264,7 +347,9 @@ function HydratedPage(props: {
       preferences={preferences}
       onPreferencesChange={onPreferencesChange}
       viewMode={viewMode}
-      onViewModeChange={setViewMode}
+      onViewModeChange={(nextViewMode) =>
+        dispatch({ type: "set-view-mode", viewMode: nextViewMode })
+      }
       activeHeading={activeHeading}
       onSelectHeading={(id, event) => {
         event.preventDefault();
@@ -273,14 +358,7 @@ function HydratedPage(props: {
         setActiveHeading(id);
       }}
       collapsedPaths={collapsedPaths}
-      onToggleDirectory={(path) =>
-        setCollapsedPaths((current) => {
-          const next = new Set(current);
-          if (next.has(path)) next.delete(path);
-          else next.add(path);
-          return next;
-        })
-      }
+      onToggleDirectory={(path) => dispatch({ type: "toggle-directory", path })}
       searchQuery={searchQuery}
       onSearchQueryChange={setSearchQuery}
       statusText={statusText}
@@ -291,6 +369,20 @@ function HydratedPage(props: {
 function headingFromHash(hash: string): string | null {
   const id = hash.startsWith("#") ? hash.slice(1) : "";
   return id.length > 0 ? decodeURIComponent(id) : null;
+}
+
+function isDevEvent(value: {
+  action?: unknown;
+  kind?: unknown;
+  path?: unknown;
+}): value is Extract<SiteAction, { type: "dev-event" }>["event"] {
+  return (
+    (value.action === "add" ||
+      value.action === "change" ||
+      value.action === "remove") &&
+    (value.kind === "document" || value.kind === "asset") &&
+    typeof value.path === "string"
+  );
 }
 
 function readPayload() {

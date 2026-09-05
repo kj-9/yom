@@ -38,6 +38,17 @@ describe("siteReducer", () => {
     ).toBe(state);
   });
 
+  it("repairs an invalid current path from an equivalent snapshot", () => {
+    const state = { ...createSiteState(snapshot), currentPath: "missing.md" };
+    const next = siteReducer(state, {
+      type: "snapshot-received",
+      snapshot: JSON.parse(JSON.stringify(snapshot)) as SiteSnapshot,
+    });
+
+    expect(next.currentPath).toBe("first.md");
+    expect(next).not.toBe(state);
+  });
+
   it("preserves reading state while replacing a changed snapshot", () => {
     let state = createSiteState(snapshot);
     state = siteReducer(state, { type: "navigate", path: "second.md" });
@@ -66,6 +77,12 @@ describe("siteReducer", () => {
     expect(next.viewMode).toBe("raw");
     expect(next.collapsedPaths).toBe(state.collapsedPaths);
     expect(next.preferences).toBe(state.preferences);
+
+    const expanded = siteReducer(next, {
+      type: "toggle-directory",
+      path: "guide",
+    });
+    expect(expanded.collapsedPaths.has("guide")).toBe(false);
   });
 
   it("ignores unchanged dev events and applies a typed snapshot event", () => {
@@ -84,6 +101,20 @@ describe("siteReducer", () => {
         snapshot: changed,
       }).snapshot,
     ).toBe(changed);
+
+    const removed = {
+      ...snapshot,
+      firstPath: "second.md",
+      documents: [snapshot.documents[1]],
+    };
+    expect(
+      siteReducer(state, {
+        type: "dev-event",
+        event: { kind: "document", action: "remove", path: "first.md" },
+        snapshot: removed,
+        currentPath: "second.md",
+      }).currentPath,
+    ).toBe("second.md");
   });
 });
 

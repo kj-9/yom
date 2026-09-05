@@ -3,8 +3,6 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 import { build as viteBuild } from "vite";
-import { renderToString } from "preact-render-to-string";
-import { h } from "preact";
 
 import { rewriteRelativeLinks } from "../core/links.js";
 import { renderMarkdownDocument } from "../core/markdown.js";
@@ -24,7 +22,7 @@ import {
   buildSiteSnapshot,
   serializeSitePayload,
 } from "../core/sitepayload.js";
-import { StaticSitePage } from "../site/static.js";
+import { renderSitePage } from "../site/server.js";
 import { createYomViteConfig } from "../dev/vite.js";
 
 const packageRoot = path.resolve(
@@ -144,14 +142,12 @@ export async function buildStaticSite(
         initialPath: markdownPath,
         documentPath: markdownPath,
         snapshot: sharedSnapshot,
-        appMarkup: renderToString(
-          h(StaticSitePage, {
-            snapshot: sharedSnapshot,
-            document: sharedDocument ?? null,
-            title: config.title,
-            mode: "static",
-          }),
-        ),
+        appMarkup: renderSitePage({
+          snapshot: sharedSnapshot,
+          document: sharedDocument ?? null,
+          title: config.title,
+          mode: "static",
+        }),
         ...siteConfigValues(config),
       }),
       "utf-8",
@@ -176,15 +172,13 @@ export async function buildStaticSite(
       initialPath: snapshot.firstPath,
       documentPath: sharedSnapshot.firstPath,
       snapshot: sharedSnapshot,
-      appMarkup: renderToString(
-        h(StaticSitePage, {
-          snapshot: sharedSnapshot,
-          document: sharedSnapshot.documents[0] ?? null,
-          title: config.title,
-          mode: "static",
-          notFound: true,
-        }),
-      ),
+      appMarkup: renderSitePage({
+        snapshot: sharedSnapshot,
+        document: sharedSnapshot.documents[0] ?? null,
+        title: config.title,
+        mode: "static",
+        notFound: true,
+      }),
       ...siteConfigValues(config),
     }),
     "utf-8",
@@ -197,14 +191,12 @@ export async function buildStaticSite(
       notFound: true,
       documentPath: null,
       snapshot: sharedSnapshot,
-      appMarkup: renderToString(
-        h(StaticSitePage, {
-          snapshot: sharedSnapshot,
-          document: null,
-          title: config.title,
-          mode: "static",
-        }),
-      ),
+      appMarkup: renderSitePage({
+        snapshot: sharedSnapshot,
+        document: null,
+        title: config.title,
+        mode: "static",
+      }),
       ...siteConfigValues(config),
     }),
     "utf-8",

@@ -18,5 +18,5 @@
     "src/site/**/*.tsx",
     "src/site/state.ts"
   ],
-  "exclude": ["src/site/main.ts", "tests/**"]
+  "exclude": ["tests/**"]
 }

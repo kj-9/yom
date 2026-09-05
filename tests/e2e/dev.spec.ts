@@ -23,6 +23,7 @@ test.beforeAll(async () => {
   docsRoot = path.join(callerRoot, "docs");
   await mkdir(docsRoot, { recursive: true });
   await writeFile(path.join(docsRoot, "README.md"), markdown("Initial"));
+  await writeFile(path.join(docsRoot, "second.md"), "# Second\n");
   await writeFile(path.join(docsRoot, "pixel.svg"), svg("red"));
   await writeFile(
     path.join(callerRoot, "vite.config.ts"),
@@ -104,10 +105,60 @@ test.afterAll(async () => {
   }
 });
 
+test("hydrates shared markup without refetching or replacing the document", async ({
+  page,
+}) => {
+  for (const url of [baseUrl, `${previewUrl}docs/README.html`]) {
+    const errors: string[] = [];
+    const requests: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => {
+      if (/hydrat|mismatch/i.test(message.text())) errors.push(message.text());
+    });
+    page.on("request", (request) => {
+      if (/\/api\/doc|\/data\//.test(request.url()))
+        requests.push(request.url());
+    });
+    await page.route(/\.(?:tsx?|js)(?:\?|$)/, (route) => route.abort());
+    await page.goto(url);
+    await expect(page.locator("#docRoot h1")).toHaveText("Initial");
+    await page.unrouteAll();
+    await page.addInitScript(() => {
+      new MutationObserver((_, observer) => {
+        const root = document.getElementById("docRoot");
+        if (root) {
+          window.initialDocumentRoot = root;
+          observer.disconnect();
+        }
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await page.reload();
+    await expect(page.locator("#docRoot h1")).toHaveText("Initial");
+    await page.locator("#settingsToggle").click();
+    await expect(page.locator("#themeSelect")).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => window.initialDocumentRoot === document.getElementById("docRoot"),
+      ),
+    ).toBe(true);
+    expect(requests).toEqual([]);
+    expect(errors).toEqual([]);
+    await page.locator("#settingsToggle").click();
+    await page.locator("#nextDocument").click();
+    await expect(page.locator("#docRoot h1")).toHaveText("Second");
+    await page.locator("#rawMode").click();
+    await expect(page.locator("#rawRoot")).toContainText("# Second");
+    await page.goBack();
+    await expect(page.locator("#rawRoot")).toContainText("# Initial");
+  }
+});
+
 test("updates an external Markdown tree without periodic DOM replacement", async ({
   context,
   page,
 }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto(baseUrl);
   await expect(page.locator("#docRoot h1")).toHaveText("Initial");
@@ -316,7 +367,14 @@ test("updates an external Markdown tree without periodic DOM replacement", async
     }).observe(root, { childList: true, subtree: true });
   });
 
+  const idleRequests: string[] = [];
+  const recordIdleRequest = (request: import("@playwright/test").Request) => {
+    if (request.url().includes("/api/")) idleRequests.push(request.url());
+  };
+  page.on("request", recordIdleRequest);
   await page.waitForTimeout(2_200);
+  page.off("request", recordIdleRequest);
+  expect(idleRequests).toEqual([]);
   await expect
     .poll(() => page.evaluate(() => window.yomMutationCount ?? 0))
     .toBe(0);
@@ -327,11 +385,31 @@ test("updates an external Markdown tree without periodic DOM replacement", async
     .poll(() => page.evaluate(() => window.yomMutationCount ?? 0))
     .toBe(1);
 
+  const unchangedResponse = page.waitForResponse(
+    (response) => response.url() === `${baseUrl}/api/site`,
+  );
+  await writeFile(path.join(docsRoot, "README.md"), markdown("Updated"));
+  await unchangedResponse;
+  expect(await page.evaluate(() => window.yomMutationCount)).toBe(1);
+
   await writeFile(
     path.join(docsRoot, "second.md"),
     "# Second\n\nA unique searchable phrase.\n",
   );
   await expect(page.locator("#treeRoot")).toContainText("second.md");
+
+  await page.getByRole("button", { name: "second.md" }).click();
+  await expect(page).toHaveURL(/\/docs\/second\.html$/u);
+  await expect(page.locator("#docRoot h1")).toHaveText("Second");
+  await page.locator("#rawMode").click();
+  await expect(page.locator("#rawRoot")).toContainText("# Second");
+  await page.goBack();
+  await expect(page.locator("#rawRoot")).toContainText("# Updated");
+  await page.goForward();
+  await expect(page.locator("#rawRoot")).toContainText("# Second");
+  await page.locator("#renderedMode").click();
+  await page.locator("#previousDocument").click();
+  await expect(page.locator("#docRoot h1")).toHaveText("Updated");
 
   await mkdir(path.join(docsRoot, "guides"), { recursive: true });
   await writeFile(path.join(docsRoot, "guides", "nested.md"), "# Nested\n");
@@ -376,16 +454,81 @@ test("updates an external Markdown tree without periodic DOM replacement", async
     /[?&]v=\d+/u,
   );
 
+  await page.evaluate(() => {
+    window.beforeReconnect = document.getElementById("app");
+  });
   await stopYom(child);
   await expect(page.locator("#statusText")).toHaveText("Reconnecting");
   await writeFile(path.join(docsRoot, "README.md"), markdown("Reconnected"));
   child = await startYom();
   await expect(page.locator("#docRoot h1")).toHaveText("Reconnected");
-  await expect(page.locator("#statusText")).toHaveText(/Watching|README\.md/u);
+  await expect(page.locator("#statusText")).toHaveText("Watching");
+  expect(
+    await page.evaluate(
+      () => window.beforeReconnect === document.getElementById("app"),
+    ),
+  ).toBe(true);
+  expect(pageErrors).toEqual([]);
 
+  await expect(page.locator("#nextDocument")).toHaveAttribute(
+    "data-path",
+    "guides/nested.md",
+  );
+  const deletionRefresh = page.waitForResponse(async (response) => {
+    if (response.url() !== `${baseUrl}/api/site` || !response.ok()) {
+      return false;
+    }
+    const snapshot = (await response.json()) as {
+      documents: { path: string }[];
+    };
+    return !snapshot.documents.some(
+      (document) => document.path === "README.md",
+    );
+  });
   await rm(path.join(docsRoot, "README.md"));
-  await expect(page.locator("#docRoot h1")).toHaveText("Second");
+  await deletionRefresh;
+  expect(pageErrors).toEqual([]);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const response = await fetch("/api/site", { cache: "no-store" });
+        const snapshot = (await response.json()) as {
+          documents: { path: string }[];
+        };
+        return snapshot.documents.map((document) => document.path);
+      }),
+    )
+    .toEqual(["guides/nested.md", "second.md"]);
   await expect(page.locator("#treeRoot")).not.toContainText("README.md");
+  await expect(page.locator("#docRoot h1")).toHaveText("Nested");
+  await expect(page).toHaveURL(/\/docs\/guides\/nested\.html$/u);
+});
+
+test("reads prerendered static documents without JavaScript", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  try {
+    await page.goto(`${previewUrl}docs/README.html`);
+    await expect(page.locator("#docRoot h1")).toHaveText("Initial");
+    await expect(page.locator("#treeRoot")).toContainText("README.md");
+    await expect(page.locator("#outlinePanel")).toContainText("Details");
+    await expect(page.locator("#nextDocument")).toHaveAttribute(
+      "href",
+      "/site/docs/second.html",
+    );
+
+    await page.locator("#nextDocument").click();
+    await expect(page).toHaveURL(`${previewUrl}docs/second.html`);
+    await expect(page.locator("#docRoot h1")).toHaveText("Second");
+    await expect(page.locator("#previousDocument")).toHaveAttribute(
+      "href",
+      "/site/docs/README.html",
+    );
+  } finally {
+    await context.close();
+  }
 });
 
 function markdown(title: string): string {
@@ -459,6 +602,8 @@ async function waitForServer(
 
 declare global {
   interface Window {
+    initialDocumentRoot?: HTMLElement;
+    beforeReconnect?: HTMLElement | null;
     yomMutationCount?: number;
   }
 }

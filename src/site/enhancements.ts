@@ -1,30 +1,23 @@
+const enhancedButtons = new WeakSet<HTMLButtonElement>();
+
 export function enhanceDocumentControls(root: ParentNode): void {
   for (const pre of root.querySelectorAll("#docRoot pre")) {
-    if (pre.querySelector("code.language-mermaid, .code-copy")) continue;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "code-copy";
-    button.setAttribute("aria-label", "Copy code block");
-    button.textContent = "Copy";
+    const button = pre.querySelector<HTMLButtonElement>(".code-copy");
+    if (button === null || enhancedButtons.has(button)) continue;
+    enhancedButtons.add(button);
     button.addEventListener("click", async () => {
       await navigator.clipboard.writeText(
         pre.querySelector("code")?.textContent ?? "",
       );
       button.textContent = "Copied";
     });
-    pre.append(button);
   }
   for (const heading of root.querySelectorAll<HTMLElement>(
     "#docRoot h1, #docRoot h2, #docRoot h3, #docRoot h4, #docRoot h5, #docRoot h6",
   )) {
-    if (!heading.id || heading.querySelector(".heading-link")) continue;
-    const link = document.createElement("button");
-    link.type = "button";
-    link.className = "heading-link";
-    link.setAttribute(
-      "aria-label",
-      `Copy link to ${heading.textContent ?? heading.id}`,
-    );
+    const link = heading.querySelector<HTMLButtonElement>(".heading-link");
+    if (link === null || enhancedButtons.has(link)) continue;
+    enhancedButtons.add(link);
     link.addEventListener("click", async () => {
       const url = new URL(window.location.href);
       url.hash = heading.id;
@@ -38,6 +31,5 @@ export function enhanceDocumentControls(root: ParentNode): void {
       window.dispatchEvent(new HashChangeEvent("hashchange"));
       await navigator.clipboard.writeText(url.href).catch(() => {});
     });
-    heading.append(link);
   }
 }

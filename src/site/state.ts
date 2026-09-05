@@ -20,7 +20,11 @@ export type SiteState = {
 };
 
 export type SiteAction =
-  | { type: "snapshot-received"; snapshot: SiteSnapshot }
+  | {
+      type: "snapshot-received";
+      snapshot: SiteSnapshot;
+      currentPath?: string | null;
+    }
   | {
       type: "dev-event";
       event: {
@@ -29,6 +33,7 @@ export type SiteAction =
         kind: "document" | "asset";
       };
       snapshot?: SiteSnapshot;
+      currentPath?: string | null;
     }
   | { type: "navigate"; path: string }
   | { type: "set-view-mode"; viewMode: ViewMode }
@@ -68,13 +73,23 @@ export function siteReducer(state: SiteState, action: SiteAction): SiteState {
         : siteReducer(state, {
             type: "snapshot-received",
             snapshot: action.snapshot,
+            currentPath: action.currentPath,
           });
     case "snapshot-received": {
-      if (siteSnapshotsEqual(state.snapshot, action.snapshot)) return state;
+      const currentPath = selectedPath(
+        action.snapshot,
+        action.currentPath ?? state.currentPath,
+      );
+      if (
+        siteSnapshotsEqual(state.snapshot, action.snapshot) &&
+        currentPath === state.currentPath
+      ) {
+        return state;
+      }
       return {
         ...state,
         snapshot: action.snapshot,
-        currentPath: selectedPath(action.snapshot, state.currentPath),
+        currentPath,
       };
     }
     case "navigate":

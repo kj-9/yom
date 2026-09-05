@@ -39,6 +39,7 @@ describe("client payload", () => {
     expect(documentFromLocation(snapshot, "/docs/guide.html")?.path).toBe(
       "guide.md",
     );
+    expect(documentFromLocation(snapshot, "/")?.path).toBe("guide.md");
     expect(documentFromLocation(snapshot, "/missing.html")).toBeNull();
   });
 });

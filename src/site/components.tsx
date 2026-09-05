@@ -108,7 +108,10 @@ export function DocumentView(props: {
           <code>{document.raw}</code>
         </pre>
       ) : (
-        <div id="docRoot" dangerouslySetInnerHTML={{ __html: document.html }} />
+        <div
+          id="docRoot"
+          dangerouslySetInnerHTML={{ __html: documentHtml(document) }}
+        />
       )}
       <Pagination
         previous={document.pagination.previous}
@@ -293,4 +296,37 @@ export function SettingsPanel(props: {
 function documentHref(path: string, basePath = "/"): string {
   const base = basePath.endsWith("/") ? basePath : `${basePath}/`;
   return `${base}docs/${path.replace(/\.md$/u, ".html")}`;
+}
+
+function documentHtml(document: DocumentPayload): string {
+  let html = document.html;
+  for (const heading of document.outline) {
+    const pattern = new RegExp(
+      `(<h${heading.level}\\b[^>]*\\bid="${escapeRegExp(heading.id)}"[^>]*>)([\\s\\S]*?)(</h${heading.level}>)`,
+      "u",
+    );
+    html = html.replace(
+      pattern,
+      `$1$2<button type="button" class="heading-link" aria-label="${escapeHtmlAttribute(`Copy link to ${heading.text}`)}"></button>$3`,
+    );
+  }
+  return html.replace(
+    /<pre>(<code\b[^>]*>[\s\S]*?<\/code>)<\/pre>/gu,
+    (fullMatch, code: string) =>
+      /\blanguage-mermaid\b/u.test(code)
+        ? fullMatch
+        : `<pre>${code}<button type="button" class="code-copy" aria-label="Copy code block">Copy</button></pre>`,
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }

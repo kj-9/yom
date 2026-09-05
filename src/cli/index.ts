@@ -93,14 +93,16 @@ export async function run(options: CliOptions): Promise<void> {
   }
 
   if (options.command === "dev") {
+    const viteConfig = createYomViteConfig({
+      contentRoot: path.resolve(options.root),
+      config: options.siteConfig,
+    });
     const server = await createServer({
-      ...createYomViteConfig({
-        contentRoot: path.resolve(options.root),
-        config: options.siteConfig,
-      }),
+      ...viteConfig,
       configFile: false,
       root: packageRoot,
       server: {
+        ...viteConfig.server,
         host: options.host,
         port: options.port,
         // Starting a local server must never take focus by opening a browser.

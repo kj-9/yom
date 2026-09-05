@@ -21,7 +21,7 @@ describe("loadDocument", () => {
     await write(
       root,
       "docs/page.md",
-      "# Page\n\nThis page explains how the local document viewer handles links and assets.\n\n[Guide](../guide.md)\n\n![img](image.png)",
+      "---\ntitle: Page metadata\ndraft: false\ntags: [docs, links]\n---\n# Page\n\nThis page explains how the local document viewer handles links and assets.\n\n[Guide](../guide.md#intro)\n\n![img](image.png?size=small)",
     );
     await write(root, "guide.md", "# Guide");
     await write(root, "docs/image.png", "png");
@@ -29,10 +29,16 @@ describe("loadDocument", () => {
     await expect(loadDocument(root, "docs/page.md")).resolves.toMatchObject({
       path: "docs/page.md",
       raw: expect.stringContaining("# Page"),
-      html: expect.stringContaining('href="/?path=guide.md"'),
+      title: "Page metadata",
+      frontMatter: {
+        title: "Page metadata",
+        draft: false,
+        tags: ["docs", "links"],
+      },
+      html: expect.stringContaining('href="/?path=guide.md#intro"'),
     });
     await expect(loadDocument(root, "docs/page.md")).resolves.toMatchObject({
-      html: expect.stringContaining('src="/assets/docs/image.png"'),
+      html: expect.stringContaining('src="/assets/docs/image.png?size=small"'),
     });
   });
 });

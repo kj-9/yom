@@ -19,11 +19,12 @@ const SiteContext = createContext<SiteContextValue | null>(null);
 export function SiteProvider(props: {
   snapshot: SiteSnapshot;
   children: ComponentChildren;
+  currentPath?: string | null;
 }): ComponentChildren {
   const [state, dispatch] = useReducer(
     siteReducer,
-    props.snapshot,
-    createSiteState,
+    { snapshot: props.snapshot, currentPath: props.currentPath },
+    ({ snapshot, currentPath }) => createSiteState(snapshot, { currentPath }),
   );
   const value = useMemo(() => ({ state, dispatch }), [state, dispatch]);
   return (

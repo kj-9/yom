@@ -1,13 +1,11 @@
 import path from "node:path";
 
 import type { Plugin, UserConfig, ViteDevServer } from "vite";
-import { h } from "preact";
-import { renderToString } from "preact-render-to-string";
 
 import { resolveConfig, type ResolvedYomConfig } from "../core/config.js";
 import { DevContentRepository } from "./repository.js";
 import { createYomDevMiddleware, type DevFileEvent } from "./server.js";
-import { StaticSitePage } from "../site/static.js";
+import { renderSitePage } from "../site/server.js";
 import { serializeSitePayload } from "../core/sitepayload.js";
 
 export function createYomViteConfig(
@@ -27,7 +25,7 @@ export function createYomViteConfig(
     plugins: [createYomDevPlugin(contentRoot, config)],
     // Markdown content uses yom's SSE snapshots; Vite HMR would race those
     // watcher events and reload the whole reader before the snapshot arrives.
-    server: { host: "127.0.0.1", port: 4173, hmr: false },
+    server: { host: "127.0.0.1", port: 4173, hmr: false, ws: false },
     preview: { host: "127.0.0.1", port: 4173 },
   };
 }
@@ -37,11 +35,23 @@ function createYomDevPlugin(root: string, config: ResolvedYomConfig): Plugin {
   return {
     name: "yom-dev-api",
     apply: "serve",
-    async transformIndexHtml(html) {
+    async transformIndexHtml(html, context) {
       const snapshot = await content.getSiteSnapshot();
-      const document = snapshot.documents.find(
-        (candidate) => candidate.path === config.initialPage,
+      const url = new URL(
+        context.originalUrl ?? context.path,
+        "http://yom.local",
       );
+      const document =
+        snapshot.documents.find(
+          (candidate) =>
+            candidate.path === url.searchParams.get("path") ||
+            candidate.route === url.pathname,
+        ) ??
+        snapshot.documents.find(
+          (candidate) =>
+            candidate.path === (config.initialPage ?? snapshot.firstPath),
+        ) ??
+        null;
       const serialized = serializeSitePayload({
         mode: "dev",
         basePath: config.basePath,
@@ -58,14 +68,13 @@ function createYomDevPlugin(root: string, config: ResolvedYomConfig): Plugin {
       return html
         .replace(
           /<div id="app"><\/div>/u,
-          `<div id="app">${renderToString(
-            h(StaticSitePage, {
+          () =>
+            `<div id="app">${renderSitePage({
               snapshot,
-              document: document ?? snapshot.documents[0] ?? null,
+              document,
               title: config.title,
               mode: "dev",
-            }),
-          )}</div>`,
+            })}</div>`,
         )
         .replace(/<html lang="[^"]*">/u, `<html lang="${config.lang}">`)
         .replace(

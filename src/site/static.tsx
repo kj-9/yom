@@ -5,7 +5,7 @@ import { DocumentTree, DocumentView, Outline } from "./components.js";
 import { SettingsPanel } from "./components.js";
 import { defaultReadingPreferences, type ReadingPreferences } from "./state.js";
 
-export function StaticSitePage(props: {
+export type StaticSitePageProps = {
   snapshot: SiteSnapshot;
   document: DocumentPayload | null;
   title: string;
@@ -22,7 +22,9 @@ export function StaticSitePage(props: {
   searchQuery?: string;
   onSearchQueryChange?: (query: string) => void;
   statusText?: string;
-}): ComponentChildren {
+};
+
+export function StaticSitePage(props: StaticSitePageProps): ComponentChildren {
   const {
     snapshot,
     document,
@@ -41,6 +43,11 @@ export function StaticSitePage(props: {
     onSearchQueryChange,
     statusText,
   } = props;
+  const selectedDocument = resolveSelectedDocument(
+    snapshot,
+    document,
+    notFound,
+  );
   return (
     <>
       <a class="skip-link" href="#docRoot">
@@ -79,7 +86,7 @@ export function StaticSitePage(props: {
           <nav aria-label="Documents" id="treeRoot">
             <DocumentTree
               node={filterTree(snapshot, searchQuery)}
-              currentPath={document?.path ?? null}
+              currentPath={selectedDocument?.path ?? null}
               basePath={snapshot.basePath}
               collapsedPaths={collapsedPaths}
               onToggleDirectory={onToggleDirectory}
@@ -90,21 +97,22 @@ export function StaticSitePage(props: {
         <main id="mainContent">
           <div class="reader-shell">
             <article class="content-panel">
-              {document === null ? (
+              {selectedDocument === null ? (
                 <p id="docRoot">
                   {notFound ? "Page not found." : "No Markdown files found."}
                 </p>
               ) : (
                 <DocumentView
-                  document={document}
+                  key={selectedDocument.path}
+                  document={selectedDocument}
                   viewMode={viewMode}
                   onViewModeChange={onViewModeChange}
                 />
               )}
             </article>
-            {document === null || viewMode === "raw" ? null : (
+            {selectedDocument === null || viewMode === "raw" ? null : (
               <Outline
-                document={document}
+                document={selectedDocument}
                 activeHeading={activeHeading}
                 onSelectHeading={onSelectHeading}
               />
@@ -113,6 +121,31 @@ export function StaticSitePage(props: {
         </main>
       </div>
     </>
+  );
+}
+
+function resolveSelectedDocument(
+  snapshot: SiteSnapshot,
+  document: DocumentPayload | null,
+  notFound: boolean,
+): DocumentPayload | null {
+  if (notFound) return null;
+  if (document !== null) {
+    const current = snapshot.documents.find(
+      (candidate) => candidate.path === document.path,
+    );
+    if (current !== undefined) return current;
+    const adjacentPath =
+      document.pagination.next?.path ?? document.pagination.previous?.path;
+    const adjacent = snapshot.documents.find(
+      (candidate) => candidate.path === adjacentPath,
+    );
+    if (adjacent !== undefined) return adjacent;
+  }
+  return (
+    snapshot.documents.find(
+      (candidate) => candidate.path === snapshot.firstPath,
+    ) ?? null
   );
 }
 

@@ -9,12 +9,13 @@ import {
   Outline,
   SettingsPanel,
 } from "../../src/site/components";
+import { StaticSitePage } from "../../src/site/static";
 
 const document = {
   path: "guide.md",
   route: "/docs/guide.html",
   raw: "# Guide",
-  html: '<h1 id="guide">Guide</h1>',
+  html: '<h1 id="guide">Guide</h1><p><a href="/?path=next.md#details">Next</a></p><img src="/assets/images/guide.png" alt="Guide image">',
   metadata: { title: "Guide", lang: "und", frontMatter: {} },
   outline: [{ id: "guide", text: "Guide", level: 1 }],
   pagination: {
@@ -78,8 +79,65 @@ describe("shared site components", () => {
     const raw = renderToString(h(DocumentView, { document, viewMode: "raw" }));
     expect(rendered).toContain('id="docRoot"');
     expect(rendered).toContain('href="/docs/next.html"');
+    expect(rendered).toContain('href="/?path=next.md#details"');
+    expect(rendered).toContain('src="/assets/images/guide.png"');
     expect(raw).toContain('id="rawRoot"');
     expect(raw).toContain("# Guide");
+    expect(raw).not.toContain('id="docRoot"');
+  });
+
+  it("renders front matter metadata in the document view", () => {
+    const withFrontMatter = {
+      ...document,
+      metadata: {
+        ...document.metadata,
+        frontMatter: { title: "Guide", draft: false, tags: ["docs"] },
+      },
+    };
+    const html = renderToString(h(DocumentView, { document: withFrontMatter }));
+
+    expect(html).toContain('id="frontMatter"');
+    expect(html).toContain("title");
+    expect(html).toContain("Guide");
+    expect(html).toContain("draft");
+    expect(html).toContain("false");
+    expect(html).toContain("docs");
+  });
+
+  it("selects an adjacent document when the active document was removed", () => {
+    const nextDocument = {
+      ...document,
+      path: "next.md",
+      route: "/docs/next.html",
+      raw: "# Next",
+      html: '<h1 id="next">Next</h1>',
+      metadata: { ...document.metadata, title: "Next" },
+      pagination: { previous: null, next: null },
+    };
+    const snapshot: SiteSnapshot = {
+      root: "/notes",
+      basePath: "/",
+      lang: "und",
+      firstPath: "next.md",
+      tree: {
+        ...tree,
+        children: [
+          { name: "next.md", path: "next.md", type: "file", children: [] },
+        ],
+      },
+      documents: [nextDocument],
+    };
+    const html = renderToString(
+      h(StaticSitePage, {
+        snapshot,
+        document,
+        title: "yom",
+        mode: "dev",
+      }),
+    );
+
+    expect(html).toContain('<h1 id="next">Next</h1>');
+    expect(html).not.toContain('<h1 id="guide">Guide</h1>');
   });
 
   it("renders controlled display settings", () => {
@@ -98,5 +156,7 @@ describe("shared site components", () => {
     );
     expect(html).toContain('aria-label="Display settings"');
     expect(html).toContain('value="dark"');
+    expect(html).toContain('value="large"');
+    expect(html).toContain('id="outlineToggle"');
   });
 });
