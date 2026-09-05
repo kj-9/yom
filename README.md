@@ -155,6 +155,7 @@ Run the main checks:
 
 ```bash
 bun run check
+bun run compile
 bun run format
 bun run test
 bun run test:e2e
@@ -222,4 +223,5 @@ The workflow uses short-lived OIDC credentials and does not require an npm token
 GitHub Secrets. Running `bun run release` locally still requires an authenticated npm
 session.
 
-This package expects `bun` to be available at runtime.
+The published CLI runs on Node.js 22.12 or later; Bun is only required for
+repository development and tests.

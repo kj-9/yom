@@ -3,6 +3,7 @@
 set -euo pipefail
 
 bun run check
+bun run compile
 bun run format
 bun run test
 bun run benchmark

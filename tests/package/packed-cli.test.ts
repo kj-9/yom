@@ -5,6 +5,7 @@ import {
   readFile,
   rm,
   stat,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import {
@@ -21,7 +22,7 @@ let installRoot: string;
 let executable: string;
 
 beforeAll(async () => {
-  tempRoot = await mkdtemp(path.join(tmpdir(), "yom-package-"));
+  tempRoot = await mkdtemp(path.join(packageTempDir(), "yom-package-"));
   const packRoot = path.join(tempRoot, "pack");
   installRoot = path.join(tempRoot, "consumer");
   await mkdir(packRoot);
@@ -62,13 +63,35 @@ beforeAll(async () => {
       dependencies: { "@kj-9/yom": `file:${tarball}` },
     }),
   );
-  run("bun", ["install", "--offline"], installRoot);
+  const runtimeBin = path.join(tempRoot, "runtime-bin");
+  await mkdir(runtimeBin);
+  await symlink(
+    process.env.YOM_TEST_NODE ?? process.execPath,
+    path.join(runtimeBin, "node"),
+  );
+  await symlink(
+    path.resolve(
+      path.dirname(process.execPath),
+      "../lib/node_modules/npm/bin/npm-cli.js",
+    ),
+    path.join(runtimeBin, "npm"),
+  );
+  const runtimeEnv = withoutBun();
+  expect(
+    spawnSync("bun", ["--version"], { env: { ...process.env, ...runtimeEnv } })
+      .error,
+  ).toMatchObject({ code: "ENOENT" });
+  run("npm", ["install", "--ignore-scripts"], installRoot, runtimeEnv);
   executable = path.join(installRoot, "node_modules", ".bin", "yom");
   await writeFile(
     path.join(installRoot, "yom.config.ts"),
     'import { defineConfig } from "@kj-9/yom";\nexport default defineConfig({ title: "Packed docs", lang: "ja", outDir: "packed-dist" });\n',
   );
-}, 30_000);
+  await writeFile(
+    path.join(installRoot, "vite.config.ts"),
+    'throw new Error("caller Vite config must not be loaded");\n',
+  );
+}, 60_000);
 
 afterAll(async () => {
   if (tempRoot !== undefined) {
@@ -78,10 +101,10 @@ afterAll(async () => {
 
 describe("packed CLI", () => {
   it("runs help and builds from an installed tarball", async () => {
-    const help = run(executable, ["--help"], installRoot);
+    const help = run(executable, ["--help"], installRoot, withoutBun());
     expect(help.stdout).toContain("$ yom <command> [options]");
 
-    run(executable, ["build", "--root", "docs"], installRoot);
+    run(executable, ["build", "--root", "docs"], installRoot, withoutBun());
     const built = await stat(
       path.join(installRoot, "packed-dist", "docs", "README.html"),
     );
@@ -92,11 +115,20 @@ describe("packed CLI", () => {
     );
     expect(index).toContain('<html lang="ja">');
     expect(index).toContain("<title>Packed docs</title>");
+    run("bun", [
+      "run",
+      path.resolve("scripts/check-assets.ts"),
+      path.join(installRoot, "packed-dist"),
+    ]);
   }, 15_000);
 
   it("runs dev and preview from an installed tarball", async () => {
     const devPort = await findOpenPort();
-    const dev = start(["dev", "--root", "docs", "--port", String(devPort)]);
+    const env = withoutBun();
+    const dev = start(
+      ["dev", "--root", "docs", "--port", String(devPort)],
+      env,
+    );
     try {
       await waitForServer(dev, `http://127.0.0.1:${devPort}/api/tree`);
       const response = await fetch(
@@ -108,7 +140,7 @@ describe("packed CLI", () => {
     }
 
     const previewPort = await findOpenPort();
-    const preview = start(["preview", "--port", String(previewPort)]);
+    const preview = start(["preview", "--port", String(previewPort)], env);
     try {
       await waitForServer(preview, `http://127.0.0.1:${previewPort}/`);
       const response = await fetch(
@@ -123,14 +155,35 @@ describe("packed CLI", () => {
       await stop(preview);
     }
   });
+
+  it("runs the public export without Bun on PATH", () => {
+    const env = withoutBun();
+    const result = run(
+      "node",
+      [
+        "--input-type=module",
+        "-e",
+        'import("@kj-9/yom").then(({ defineConfig }) => { if (defineConfig({ title: "Node only" }).title !== "Node only") process.exit(1); })',
+      ],
+      installRoot,
+      env,
+    );
+    expect(result.status).toBe(0);
+  });
 });
 
-function run(command: string, args: string[], cwd = path.resolve(".")) {
+function run(
+  command: string,
+  args: string[],
+  cwd = path.resolve("."),
+  env: NodeJS.ProcessEnv = {},
+) {
   const result = spawnSync(command, args, {
     cwd,
     encoding: "utf-8",
     env: {
       ...process.env,
+      ...env,
       FORCE_COLOR: "0",
       NO_UPDATE_NOTIFIER: "1",
       TMPDIR: path.join(tempRoot, "tmp"),
@@ -146,11 +199,26 @@ function run(command: string, args: string[], cwd = path.resolve(".")) {
   return result;
 }
 
-function start(args: string[]): ChildProcessWithoutNullStreams {
+function start(
+  args: string[],
+  env: NodeJS.ProcessEnv = {},
+): ChildProcessWithoutNullStreams {
   return spawn(executable, args, {
     cwd: installRoot,
-    env: { ...process.env, FORCE_COLOR: "0" },
+    env: { ...process.env, ...env, FORCE_COLOR: "0" },
   });
+}
+
+function withoutBun(): NodeJS.ProcessEnv {
+  return {
+    PATH: [path.join(tempRoot, "runtime-bin"), "/usr/bin", "/bin"].join(
+      path.delimiter,
+    ),
+  };
+}
+
+function packageTempDir(): string {
+  return process.platform === "darwin" ? "/private/tmp" : tmpdir();
 }
 
 async function findOpenPort(): Promise<number> {

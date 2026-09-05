@@ -151,6 +151,7 @@ bunx playwright install chromium chromium-headless-shell
 
 ```bash
 bun run check
+bun run compile
 bun run format
 bun run test
 bun run test:e2e
@@ -215,4 +216,5 @@ workflowは短時間だけ有効なOIDC認証を使うため、GitHub Secretsに
 保存する必要はありません。ローカルで`bun run release`する場合は、別途npmへの
 ログインが必要です。
 
-実行時には `bun` が必要です。
+公開CLIの実行にはNode.js 22.12以上が必要です。Bunはこのリポジトリの開発と
+テストにのみ必要です。
