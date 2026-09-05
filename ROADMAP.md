@@ -235,7 +235,7 @@ CLIオプションは設定ファイルの値を上書きするものとしま�
 
 ## Phase 6.5: Vite + Preactへ移行する
 
-**Status:** In progress
+**Status:** Completed on 2026-09-05
 
 Phase 7のレスポンシブ変更に先立ち、表示層をVite + Preactへ移行します。Bunは開発用に
 維持し、公開CLIはNode.js 22.12以上のcompiled ESMとして配布します。Astro、Starlight、
@@ -243,14 +243,17 @@ Pagefind、検索機能はこの移行へ追加せず、Mermaidは既存の遅�
 
 完了条件は、dev/staticの共有component、static prerenderとhydration、既存閲覧操作の
 parity、Node.js 22/24のpack検証、production容量および初期asset budgetの達成です。
-詳細な実装順は [migrate-site-to-vite-preact](openspec/changes/migrate-site-to-vite-preact/tasks.md)
-で管理します。Phase 7はこの移行完了後に開始します。
+詳細な実装順は [migrate-site-to-vite-preact](openspec/changes/archive/2026-09-05-migrate-site-to-vite-preact/tasks.md)
+で管理します。2026-09-05に全32タスクを完了し、macOSでフルチェックと
+Node.js 22.12／24の配布検証を通過しました。検証結果は
+[移行検証記録](openspec/changes/archive/2026-09-05-migrate-site-to-vite-preact/baseline.md)を参照してください。
+Phase 7は共有Preact componentを前提に開始できます。
 
 ## Phase 7: 閲覧UIのレスポンシブ基盤を整える
 
 **Status:** Planned
 
-**Depends on:** Phase 0からPhase 6
+**Depends on:** Phase 0からPhase 6.5
 
 ### 目的
 
