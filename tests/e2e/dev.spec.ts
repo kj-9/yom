@@ -17,6 +17,7 @@ let baseUrl: string;
 let port: number;
 let preview: ChildProcessWithoutNullStreams;
 let previewUrl: string;
+const stressPath = `z${"long-path-".repeat(12)}.md`;
 
 test.beforeAll(async () => {
   callerRoot = await mkdtemp(path.join(tmpdir(), "yom-e2e-"));
@@ -25,6 +26,23 @@ test.beforeAll(async () => {
   await writeFile(path.join(docsRoot, "README.md"), markdown("Initial"));
   await writeFile(path.join(docsRoot, "second.md"), "# Second\n");
   await writeFile(path.join(docsRoot, "pixel.svg"), svg("red"));
+  await writeFile(
+    path.join(docsRoot, stressPath),
+    `# Long content
+
+${"unbroken".repeat(80)}
+
+\`\`\`text
+${"long code ".repeat(50)}
+\`\`\`
+
+| ${"Heading".repeat(40)} | Column |
+| --- | --- |
+| Value | ${"Cell".repeat(80)} |
+
+![pixel](pixel.svg)
+`,
+  );
   await writeFile(
     path.join(callerRoot, "vite.config.ts"),
     'throw new Error("caller vite config must not be loaded");\n',
@@ -150,6 +168,195 @@ test("hydrates shared markup without refetching or replacing the document", asyn
     await expect(page.locator("#rawRoot")).toContainText("# Second");
     await page.goBack();
     await expect(page.locator("#rawRoot")).toContainText("# Initial");
+  }
+});
+
+test("responsive navigation shares layouts and modal interactions in dev and static", async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(60_000);
+  const captures = new Map<number, Buffer>();
+  for (const [mode, url] of [
+    ["dev", baseUrl],
+    ["static", previewUrl],
+  ] as const) {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(url);
+    await expect(page.locator("#docRoot h1")).toHaveText("Initial");
+    await page.evaluate(() => document.fonts.ready);
+    for (const width of [320, 390, 899, 900, 1024, 1199, 1200, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              document.documentElement.scrollWidth <=
+              document.documentElement.clientWidth,
+          ),
+        )
+        .toBe(true);
+      if (width < 900) {
+        await expect(page.locator("#sidebar")).toBeHidden();
+        await expect(page.locator("#navigationToggle")).toBeVisible();
+      } else {
+        await expect(page.locator("#sidebar")).toBeVisible();
+        await expect(page.locator("#navigationToggle")).toBeHidden();
+      }
+      if (width === 1440) {
+        await expect(
+          page.getByRole("complementary", { name: "On this page" }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("navigation", { name: "Documents" }),
+        ).toBeVisible();
+      } else if (width < 1200)
+        await expect(page.locator("#outlinePanel")).toBeHidden();
+      if ([390, 1024, 1440].includes(width)) {
+        const shot = await page.screenshot({
+          path: testInfo.outputPath(`${mode}-${width}.png`),
+          mask: [page.locator(".sidebar-meta")],
+        });
+        await testInfo.attach(`${mode}-${width}`, {
+          body: shot,
+          contentType: "image/png",
+        });
+        if (mode === "dev") captures.set(width, shot);
+        else {
+          expect(shot.equals(captures.get(width)!)).toBe(true);
+          await page.screenshot({
+            path: testInfo.outputPath(`preview-${width}.png`),
+          });
+        }
+      }
+    }
+    await page.evaluate(() => localStorage.setItem("yom-sidebar-width", "560"));
+    await page.reload();
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect
+      .poll(
+        async () => (await page.locator("#mainContent").boundingBox())!.width,
+      )
+      .toBeGreaterThanOrEqual(640);
+    await expect(page.locator("#outlinePanel")).toBeHidden();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect
+      .poll(async () => (await page.locator("#sidebar").boundingBox())!.width)
+      .toBe(560);
+    expect(
+      await page.evaluate(() => localStorage.getItem("yom-sidebar-width")),
+    ).toBe("560");
+    await page.setViewportSize({ width: 390, height: 900 });
+    const toggle = page.locator("#navigationToggle");
+    const mainBox = await page.locator("#mainContent").boundingBox();
+    await toggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("dialog", { name: "Documents" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Close documents" }),
+    ).toBeFocused();
+    expect(await page.locator("#mainContent").boundingBox()).toEqual(mainBox);
+    expect(
+      await page
+        .locator("#mainContent")
+        .evaluate((element) => (element as HTMLElement).inert),
+    ).toBe(true);
+    expect(
+      await page.evaluate(() => getComputedStyle(document.body).overflow),
+    ).toBe("hidden");
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.locator("#treeRoot a").last()).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(
+      page.getByRole("button", { name: "Close documents" }),
+    ).toBeFocused();
+    const drawerShot = await page.screenshot({
+      path: testInfo.outputPath(`${mode}-drawer.png`),
+      mask: [page.locator(".sidebar-meta")],
+    });
+    if (mode === "dev") captures.set(-390, drawerShot);
+    else expect(drawerShot.equals(captures.get(-390)!)).toBe(true);
+    await page.locator("#settingsToggle").click();
+    for (const theme of ["light", "dark"]) {
+      await page.locator("#themeSelect").selectOption(theme);
+      await expect(page.locator("body")).toHaveAttribute("data-theme", theme);
+      for (const palette of ["paper", "forest", "sea"]) {
+        await page.locator("#paletteSelect").selectOption(palette);
+        await expect(page.locator("body")).toHaveAttribute(
+          "data-palette",
+          palette,
+        );
+        expect((await new AxeBuilder({ page }).analyze()).violations).toEqual(
+          [],
+        );
+      }
+    }
+    await page.locator("#themeSelect").selectOption("system");
+    await page.locator("#paletteSelect").selectOption("paper");
+    await page.locator("#settingsToggle").click();
+    await page.keyboard.press("Escape");
+    await expect(toggle).toBeFocused();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      await page
+        .locator("#mainContent")
+        .evaluate((element) => (element as HTMLElement).inert),
+    ).toBe(false);
+    expect(
+      await page.evaluate(() => getComputedStyle(document.body).overflow),
+    ).not.toBe("hidden");
+    await toggle.click();
+    await page
+      .locator(".navigation-backdrop")
+      .click({ position: { x: 380, y: 400 } });
+    await expect(toggle).toBeFocused();
+    await toggle.click();
+    await page.getByRole("button", { name: "second.md" }).click();
+    await expect(page.locator("#docRoot h1")).toHaveText("Second");
+    await expect(toggle).toBeFocused();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await toggle.click();
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator(".navigation-backdrop")).toBeHidden();
+    expect(
+      await page.evaluate(
+        () => document.activeElement?.getClientRects().length,
+      ),
+    ).toBeGreaterThan(0);
+    await page.setViewportSize({ width: 320, height: 900 });
+    await toggle.click();
+    await page.getByRole("button", { name: stressPath }).click();
+    await expect(page.locator("#docRoot h1")).toHaveText("Long content");
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
+    expect(
+      await page
+        .locator("#docRoot pre")
+        .evaluate((element) => element.scrollWidth > element.clientWidth),
+    ).toBe(true);
+    expect(
+      await page
+        .locator("#docRoot table")
+        .evaluate((element) => element.scrollWidth > element.clientWidth),
+    ).toBe(true);
+    await page.evaluate(() => window.scrollTo(0, 300));
+    const beforeScroll = await page.evaluate(() => window.scrollY);
+    expect(beforeScroll).toBeGreaterThan(0);
+    await toggle.click();
+    await page.mouse.move(310, 700);
+    await page.mouse.wheel(0, 200);
+    expect(await page.evaluate(() => window.scrollY)).toBe(beforeScroll);
+    await page.getByRole("button", { name: "Close documents" }).click();
+    await expect(toggle).toBeFocused();
+    expect(await page.evaluate(() => window.scrollY)).toBe(beforeScroll);
+    await context.close();
   }
 });
 
@@ -472,7 +679,7 @@ test("updates an external Markdown tree without periodic DOM replacement", async
 
   await expect(page.locator("#nextDocument")).toHaveAttribute(
     "data-path",
-    "guides/nested.md",
+    "second.md",
   );
   const deletionRefresh = page.waitForResponse(async (response) => {
     if (response.url() !== `${baseUrl}/api/site` || !response.ok()) {
@@ -495,19 +702,22 @@ test("updates an external Markdown tree without periodic DOM replacement", async
         const snapshot = (await response.json()) as {
           documents: { path: string }[];
         };
-        return snapshot.documents.map((document) => document.path);
+        return snapshot.documents.map((document) => document.path).sort();
       }),
     )
-    .toEqual(["guides/nested.md", "second.md"]);
+    .toEqual(["guides/nested.md", "second.md", stressPath]);
   await expect(page.locator("#treeRoot")).not.toContainText("README.md");
-  await expect(page.locator("#docRoot h1")).toHaveText("Nested");
-  await expect(page).toHaveURL(/\/docs\/guides\/nested\.html$/u);
+  await expect(page.locator("#docRoot h1")).toHaveText("Second");
+  await expect(page).toHaveURL(/\/docs\/second\.html$/u);
 });
 
 test("reads prerendered static documents without JavaScript", async ({
   browser,
 }) => {
-  const context = await browser.newContext({ javaScriptEnabled: false });
+  const context = await browser.newContext({
+    javaScriptEnabled: false,
+    viewport: { width: 390, height: 900 },
+  });
   const page = await context.newPage();
   try {
     await page.goto(`${previewUrl}docs/README.html`);

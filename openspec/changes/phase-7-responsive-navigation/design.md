@@ -1,8 +1,8 @@
 ## Context
 
-現在のUIには900px以下の開閉ボタンと`nav-open`状態が存在するが、サイドバーは通常フロー内で開くため本文を押し下げ、閉じ方は開閉ボタンに限られている。`src/site/styles.css`の本文とページ内見出しは画面幅に関係なく2列を基本とし、保存済みサイドバー幅は1,024px時の本文領域を侵食できる。
+移行後のUIは`StaticSitePage`をdev/staticで共有する。モバイル開閉ボタンとstateは未実装で、CSSに旧モバイル規則だけが残っている。`src/site/styles.css`の本文とページ内見出しは画面幅に関係なく2列を基本とし、保存済みサイドバー幅は1,024px時の本文領域を侵食できる。
 
-site engine評価の結果、Vite + Preact + `preact-render-to-string`を採用し、`migrate-site-to-vite-preact`で命令的DOM処理を共有component、reducer、prerender/hydrationへ移す。本変更はそのmigration完了後のcomponent構造を前提とし、実装開始前に実際の`Shell`、`DocumentTree`、`Outline`、共有stateとの整合を再確認する。
+site engine評価の結果、Vite + Preact + `preact-render-to-string`を採用し、`migrate-site-to-vite-preact`で命令的DOM処理を共有component、reducer、prerender/hydrationへ移す。本変更はそのmigration完了後のcomponent構造を前提とし、実装開始前に実際の`StaticSitePage`、`DocumentTree`、`Outline`、共有stateとの整合を再確認する。
 
 ## Goals / Non-Goals
 
@@ -23,7 +23,7 @@ site engine評価の結果、Vite + Preact + `preact-render-to-string`を採用�
 
 ### Preact migration完了を実装の前提条件にする
 
-`migrate-site-to-vite-preact`を完了した後に本変更を再レビューする。mobile drawerは移行後の`Shell`と`DocumentTree`を拡張し、開閉状態は共有reducerへ追加する。migration前の命令的DOMへ先行実装する案は、component化の際の廃棄作業と二重保守を増やすため採用しない。
+`migrate-site-to-vite-preact`を完了した後に本変更を再レビューする。mobile drawerは移行後の`StaticSitePage`と`DocumentTree`を拡張し、開閉状態は共有reducerへ追加する。migration前の命令的DOMへ先行実装する案は、component化の際の廃棄作業と二重保守を増やすため採用しない。
 
 ### CSSの2つのブレークポイントで3段階を表現する
 
@@ -54,4 +54,8 @@ site engine評価の結果、Vite + Preact + `preact-render-to-string`を採用�
 
 ## Migration Plan
 
-まず`migrate-site-to-vite-preact`を完了し、本設計とtasksを実際のcomponent、reducer、dev/static shared renderingへ合わせて再レビューする。その後、`Shell`と`DocumentTree`へ背景レイヤーと識別可能なナビゲーション名を追加し、CSSとreducer actionを段階的に実装する。公開設定や保存キーの移行は不要。回帰時は新しい背景レイヤー、mobile navigation action、追加ブレークポイントを一単位で戻せる。
+まず`migrate-site-to-vite-preact`を完了し、本設計とtasksを実際のcomponent、reducer、dev/static shared renderingへ合わせて再レビューする。その後、`StaticSitePage`と`DocumentTree`へ背景レイヤーと識別可能なナビゲーション名を追加し、CSSとreducer actionを段階的に実装する。公開設定や保存キーの移行は不要。回帰時は新しい背景レイヤー、mobile navigation action、追加ブレークポイントを一単位で戻せる。
+
+## 実装前レビュー（2026-09-05）
+
+Preact移行は全32タスク完了・フルチェック成功済み。`StaticSitePage`へ単一のsidebar、開閉ボタン、背景を配置し、`SiteState`へ一時的な開閉状態を追加する。DOM参照とfocus・inert・scroll lockの副作用は専用hookへ分離する。JavaScript無効時はモバイルでも文書一覧を通常フローで表示し、移行済みの静的ナビゲーション契約を保つ。本文の利用可能幅が不足する場合はcontainer queryでoutlineを隠す。

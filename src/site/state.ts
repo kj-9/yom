@@ -15,6 +15,7 @@ export type SiteState = {
   snapshot: SiteSnapshot;
   currentPath: string | null;
   viewMode: ViewMode;
+  navigationOpen: boolean;
   collapsedPaths: ReadonlySet<string>;
   preferences: ReadingPreferences;
 };
@@ -36,6 +37,7 @@ export type SiteAction =
       currentPath?: string | null;
     }
   | { type: "navigate"; path: string }
+  | { type: "set-navigation-open"; open: boolean }
   | { type: "set-view-mode"; viewMode: ViewMode }
   | { type: "toggle-directory"; path: string }
   | { type: "set-preferences"; preferences: Partial<ReadingPreferences> };
@@ -60,6 +62,7 @@ export function createSiteState(
     snapshot,
     currentPath: selectedPath(snapshot, options.currentPath),
     viewMode: "rendered",
+    navigationOpen: false,
     collapsedPaths: new Set(),
     preferences: { ...defaultReadingPreferences, ...options.preferences },
   };
@@ -92,14 +95,18 @@ export function siteReducer(state: SiteState, action: SiteAction): SiteState {
         currentPath,
       };
     }
+    case "set-navigation-open":
+      return state.navigationOpen === action.open
+        ? state
+        : { ...state, navigationOpen: action.open };
     case "navigate":
       if (
-        action.path === state.currentPath ||
+        (action.path === state.currentPath && !state.navigationOpen) ||
         !hasDocument(state.snapshot, action.path)
       ) {
         return state;
       }
-      return { ...state, currentPath: action.path };
+      return { ...state, currentPath: action.path, navigationOpen: false };
     case "set-view-mode":
       return action.viewMode === state.viewMode
         ? state

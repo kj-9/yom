@@ -135,7 +135,14 @@ when the site is hosted below a subpath such as GitHub Pages.
 - Press `Escape` to leave a search or form control
 - Use the `#` action beside a heading to copy its URL
 - Use the copy action on fenced code blocks to copy their contents
-- The page outline stays visible while a long document scrolls
+- At desktop widths, Documents, the document, and On this page share the screen;
+  the outline is hidden when space is limited
+- Below 900px, **Documents** opens an overlay drawer without moving the document;
+  select a document, press `Escape`, or click the backdrop to close it
+- Keyboard focus stays inside the open drawer and returns to **Documents** when closed
+- Wide code and tables scroll within the document instead of widening the page
+- Without JavaScript, the static document list remains available at every width
+- The page outline stays visible while a long document scrolls when space permits
 - Display settings include system/light/dark themes, palette, text size, page
   width, and outline visibility; browser choices are saved locally
 - Use **Reset display settings** to return to the `yom.config.ts` defaults

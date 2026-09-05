@@ -3,6 +3,7 @@ import "./styles.css";
 import { hydrate, type ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 
+import { useMobileNavigation } from "./navigation.js";
 import { SiteProvider, useSite } from "./context.js";
 import { StaticSitePage } from "./static.js";
 import {
@@ -47,6 +48,7 @@ function HydratedContent(props: {
   const { state, dispatch } = useSite();
   const { snapshot, currentPath, preferences, viewMode, collapsedPaths } =
     state;
+  const navigation = useMobileNavigation(state.navigationOpen, dispatch);
   const currentDocument = props.payload.notFound
     ? null
     : (snapshot.documents.find((candidate) => candidate.path === currentPath) ??
@@ -339,6 +341,11 @@ function HydratedContent(props: {
   };
   return (
     <StaticSitePage
+      {...navigation}
+      navigationOpen={state.navigationOpen}
+      onNavigationChange={(open) =>
+        dispatch({ type: "set-navigation-open", open })
+      }
       snapshot={snapshot}
       document={currentDocument}
       title={props.payload.title ?? "yom"}

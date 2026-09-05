@@ -1,4 +1,4 @@
-import type { ComponentChildren } from "preact";
+import type { ComponentChildren, RefObject } from "preact";
 
 import type { DocumentPayload, SiteSnapshot } from "../core/sitepayload.js";
 import { DocumentTree, DocumentView, Outline } from "./components.js";
@@ -22,6 +22,12 @@ export type StaticSitePageProps = {
   searchQuery?: string;
   onSearchQueryChange?: (query: string) => void;
   statusText?: string;
+  navigationOpen?: boolean;
+  mobile?: boolean;
+  onNavigationChange?: (open: boolean) => void;
+  sidebarRef?: RefObject<HTMLElement>;
+  toggleRef?: RefObject<HTMLButtonElement>;
+  mainRef?: RefObject<HTMLElement>;
 };
 
 export function StaticSitePage(props: StaticSitePageProps): ComponentChildren {
@@ -42,6 +48,12 @@ export function StaticSitePage(props: StaticSitePageProps): ComponentChildren {
     searchQuery = "",
     onSearchQueryChange,
     statusText,
+    navigationOpen = false,
+    mobile = false,
+    onNavigationChange,
+    sidebarRef,
+    toggleRef,
+    mainRef,
   } = props;
   const selectedDocument = resolveSelectedDocument(
     snapshot,
@@ -53,8 +65,39 @@ export function StaticSitePage(props: StaticSitePageProps): ComponentChildren {
       <a class="skip-link" href="#docRoot">
         Skip to document
       </a>
+      <button
+        ref={toggleRef}
+        id="navigationToggle"
+        class="mobile-nav-toggle"
+        type="button"
+        aria-controls="sidebar"
+        aria-expanded={navigationOpen}
+        onClick={() => onNavigationChange?.(!navigationOpen)}
+      >
+        Documents
+      </button>
+      <div
+        class="navigation-backdrop"
+        hidden={!navigationOpen}
+        onClick={() => onNavigationChange?.(false)}
+        aria-hidden="true"
+      />
       <div class="layout">
-        <aside id="sidebar">
+        <section
+          id="sidebar"
+          ref={sidebarRef}
+          role={mobile && navigationOpen ? "dialog" : "complementary"}
+          aria-modal={mobile && navigationOpen ? "true" : undefined}
+          aria-label="Documents"
+        >
+          <button
+            class="mobile-nav-close"
+            type="button"
+            aria-label="Close documents"
+            onClick={() => onNavigationChange?.(false)}
+          >
+            Close
+          </button>
           <div class="sidebar-header">
             <h1 class="brand">{title}</h1>
             <div class="sidebar-meta">
@@ -83,6 +126,7 @@ export function StaticSitePage(props: StaticSitePageProps): ComponentChildren {
               placeholder="Search titles and content"
             />
           </label>
+          <h2 class="documents-title">Documents</h2>
           <nav aria-label="Documents" id="treeRoot">
             <DocumentTree
               node={filterTree(snapshot, searchQuery)}
@@ -92,9 +136,9 @@ export function StaticSitePage(props: StaticSitePageProps): ComponentChildren {
               onToggleDirectory={onToggleDirectory}
             />
           </nav>
-        </aside>
+        </section>
         <div id="sidebarResizer" class="sidebar-resizer" aria-hidden="true" />
-        <main id="mainContent">
+        <main id="mainContent" ref={mainRef}>
           <div class="reader-shell">
             <article class="content-panel">
               {selectedDocument === null ? (

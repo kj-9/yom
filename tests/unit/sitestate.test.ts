@@ -24,6 +24,27 @@ const snapshot: SiteSnapshot = {
 };
 
 describe("siteReducer", () => {
+  it("closes navigation on document selection including the current document", () => {
+    const closed = createSiteState(snapshot);
+    expect(closed.navigationOpen).toBe(false);
+    const open = siteReducer(closed, {
+      type: "set-navigation-open",
+      open: true,
+    });
+    expect(open.navigationOpen).toBe(true);
+    expect(siteReducer(open, { type: "set-navigation-open", open: true })).toBe(
+      open,
+    );
+    for (const path of ["first.md", "second.md"]) {
+      const selected = siteReducer(open, { type: "navigate", path });
+      expect(selected.navigationOpen).toBe(false);
+      expect(selected.currentPath).toBe(path);
+    }
+    expect(
+      siteReducer(open, { type: "set-navigation-open", open: false })
+        .navigationOpen,
+    ).toBe(false);
+  });
   it("returns the same state for an equivalent snapshot", () => {
     const state = createSiteState(snapshot);
     const equivalentSnapshot = JSON.parse(

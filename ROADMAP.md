@@ -251,7 +251,12 @@ Phase 7は共有Preact componentを前提に開始できます。
 
 ## Phase 7: 閲覧UIのレスポンシブ基盤を整える
 
-**Status:** Planned
+**Status:** In progress
+
+2026-09-05に`phase-7-responsive-navigation`のレスポンシブ配置とモバイル文書
+ドロワーを実装しました。320〜1,440pxの配置、dev/staticの画像一致、フォーカスと
+スクロールの復帰、全配色のaxe監査を検証済みです。表示設定のポップオーバー／シート
+整理は別の実装単位として残っています。
 
 **Depends on:** Phase 0からPhase 6.5
 
