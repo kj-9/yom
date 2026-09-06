@@ -1,3 +1,4 @@
+import { readingDefaults } from "../site/preferences.js";
 import path from "node:path";
 
 import type { Plugin, UserConfig, ViteDevServer } from "vite";
@@ -70,6 +71,8 @@ function createYomDevPlugin(root: string, config: ResolvedYomConfig): Plugin {
           /<div id="app"><\/div>/u,
           () =>
             `<div id="app">${renderSitePage({
+              preferences: readingDefaults(config),
+              defaults: readingDefaults(config),
               snapshot,
               document,
               title: config.title,

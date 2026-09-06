@@ -7,6 +7,7 @@ import {
   siteReducer,
   type SiteAction,
   type SiteState,
+  type ReadingPreferences,
 } from "./state.js";
 
 export type SiteContextValue = {
@@ -20,11 +21,17 @@ export function SiteProvider(props: {
   snapshot: SiteSnapshot;
   children: ComponentChildren;
   currentPath?: string | null;
+  preferences?: ReadingPreferences;
 }): ComponentChildren {
   const [state, dispatch] = useReducer(
     siteReducer,
-    { snapshot: props.snapshot, currentPath: props.currentPath },
-    ({ snapshot, currentPath }) => createSiteState(snapshot, { currentPath }),
+    {
+      snapshot: props.snapshot,
+      currentPath: props.currentPath,
+      preferences: props.preferences,
+    },
+    ({ snapshot, currentPath, preferences }) =>
+      createSiteState(snapshot, { currentPath, preferences }),
   );
   const value = useMemo(() => ({ state, dispatch }), [state, dispatch]);
   return (

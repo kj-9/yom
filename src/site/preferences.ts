@@ -9,6 +9,14 @@ const keys: Array<keyof ReadingPreferences> = [
   "sidebarWidth",
 ];
 
+export function readingDefaults(
+  config: Partial<ReadingPreferences>,
+): ReadingPreferences {
+  return Object.fromEntries(
+    keys.map((key) => [key, config[key] ?? defaultReadingPreferences[key]]),
+  ) as ReadingPreferences;
+}
+
 export function readReadingPreferences(
   storage: Storage | undefined,
 ): Partial<ReadingPreferences> {

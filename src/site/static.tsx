@@ -12,6 +12,7 @@ export type StaticSitePageProps = {
   mode: "dev" | "static";
   notFound?: boolean;
   preferences?: ReadingPreferences;
+  defaults?: ReadingPreferences;
   onPreferencesChange?: (patch: Partial<ReadingPreferences>) => void;
   viewMode?: "rendered" | "raw";
   onViewModeChange?: (viewMode: "rendered" | "raw") => void;
@@ -111,6 +112,8 @@ export function StaticSitePage(props: StaticSitePageProps): ComponentChildren {
           </div>
           <SettingsPanel
             preferences={preferences}
+            defaults={props.defaults}
+            available={!mobile || navigationOpen}
             onChange={onPreferencesChange}
           />
           <label class="search">

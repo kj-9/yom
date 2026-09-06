@@ -1,6 +1,8 @@
 import type { SiteSnapshot } from "../core/sitepayload.js";
 
-export type ClientPayload = {
+import type { ReadingPreferences } from "./state.js";
+
+export type ClientPayload = Partial<ReadingPreferences> & {
   mode?: "dev" | "static";
   title?: string;
   snapshot?: SiteSnapshot;

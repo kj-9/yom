@@ -145,6 +145,9 @@ when the site is hosted below a subpath such as GitHub Pages.
 - The page outline stays visible while a long document scrolls when space permits
 - Display settings include system/light/dark themes, palette, text size, page
   width, and outline visibility; browser choices are saved locally
+- Display settings stay within the viewport, including short mobile screens;
+  close with `Escape`, the close button, or an outside click
+- The system theme follows operating-system appearance changes
 - Use **Reset display settings** to return to the `yom.config.ts` defaults
 - Front matter supports simple scalar values and inline arrays such as
   `tags: [one, two]`

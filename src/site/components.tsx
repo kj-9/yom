@@ -1,3 +1,4 @@
+import { useSettingsPanel } from "./settings.js";
 import type { ComponentChildren } from "preact";
 import type {
   DocumentPayload,
@@ -182,18 +183,52 @@ export function Pagination(props: {
 export function SettingsPanel(props: {
   preferences: ReadingPreferences;
   onChange: (patch: Partial<ReadingPreferences>) => void;
+  defaults?: ReadingPreferences;
+  available?: boolean;
 }): ComponentChildren {
-  const { preferences, onChange } = props;
+  const { preferences, onChange, defaults = defaultReadingPreferences } = props;
+  const settings = useSettingsPanel(props.available);
   return (
-    <details class="settings-panel">
+    <details
+      class="settings-panel"
+      ref={settings.panelRef}
+      onToggle={(event) => settings.setOpen(event.currentTarget.open)}
+      onFocusOut={(event) => {
+        if (
+          event.relatedTarget instanceof Node &&
+          !event.currentTarget.contains(event.relatedTarget)
+        )
+          settings.close(false);
+      }}
+    >
       <summary
         class="settings-toggle"
         id="settingsToggle"
+        ref={settings.triggerRef}
+        aria-controls="displaySettings"
+        aria-expanded={settings.open}
         aria-label="Display settings"
       >
         <span aria-hidden="true">⚙</span>
+        <span>Display settings</span>
       </summary>
-      <section class="settings-card" aria-label="Display settings">
+      <section
+        id="displaySettings"
+        class="settings-card"
+        ref={settings.cardRef}
+        aria-label="Display settings"
+      >
+        <div class="settings-heading">
+          <h2>Display settings</h2>
+          <button
+            type="button"
+            class="settings-close"
+            aria-label="Close display settings"
+            onClick={() => settings.close()}
+          >
+            Close
+          </button>
+        </div>
         <div class="settings-grid">
           <label class="settings-control">
             <span class="settings-label">Theme</span>
@@ -284,7 +319,7 @@ export function SettingsPanel(props: {
           class="settings-reset"
           id="resetDisplaySettings"
           type="button"
-          onClick={() => onChange(defaultReadingPreferences)}
+          onClick={() => onChange(defaults)}
         >
           Reset display settings
         </button>

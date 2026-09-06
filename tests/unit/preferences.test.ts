@@ -1,10 +1,30 @@
 import { describe, expect, it } from "vitest";
 import {
   mergeReadingPreferences,
+  readingDefaults,
   writeReadingPreferences,
 } from "../../src/site/preferences";
 
 describe("reading preferences persistence", () => {
+  it("uses explicit site defaults while filling unspecified settings", () => {
+    expect(
+      readingDefaults({
+        theme: "dark",
+        palette: "forest",
+        outline: false,
+        fontSize: "large",
+        contentWidth: "wide",
+      }),
+    ).toEqual({
+      theme: "dark",
+      palette: "forest",
+      outline: false,
+      fontSize: "large",
+      contentWidth: "wide",
+      sidebarWidth: 304,
+    });
+    expect(readingDefaults({ outline: undefined }).outline).toBe(true);
+  });
   it("round-trips supported settings without a browser", () => {
     const values = new Map<string, string>();
     const storage = {

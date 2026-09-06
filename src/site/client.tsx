@@ -13,6 +13,7 @@ import {
 } from "./payload.js";
 import {
   readReadingPreferences,
+  readingDefaults,
   writeReadingPreferences,
 } from "./preferences.js";
 import type { ReadingPreferences, SiteAction } from "./state.js";
@@ -35,6 +36,7 @@ function HydratedPage(props: {
   return (
     <SiteProvider
       snapshot={snapshot}
+      preferences={readingDefaults(props.payload)}
       currentPath={props.document?.path ?? snapshot.firstPath}
     >
       <HydratedContent payload={props.payload} />
@@ -116,7 +118,17 @@ function HydratedContent(props: {
   }, [snapshot]);
   useEffect(() => {
     const body = document.body;
-    body.dataset.theme = preferences.theme;
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
+    const updateTheme = () => {
+      body.dataset.theme =
+        preferences.theme === "system"
+          ? systemTheme.matches
+            ? "dark"
+            : "light"
+          : preferences.theme;
+    };
+    updateTheme();
+    systemTheme.addEventListener("change", updateTheme);
     body.dataset.palette = preferences.palette;
     body.dataset.fontSize = preferences.fontSize;
     body.dataset.contentWidth = preferences.contentWidth;
@@ -125,6 +137,7 @@ function HydratedContent(props: {
       "--sidebar-width",
       `${preferences.sidebarWidth}px`,
     );
+    return () => systemTheme.removeEventListener("change", updateTheme);
   }, [preferences]);
   useEffect(() => {
     const selected = headingFromHash(window.location.hash) ?? activeHeading;
@@ -342,6 +355,7 @@ function HydratedContent(props: {
   return (
     <StaticSitePage
       {...navigation}
+      defaults={readingDefaults(props.payload)}
       navigationOpen={state.navigationOpen}
       onNavigationChange={(open) =>
         dispatch({ type: "set-navigation-open", open })

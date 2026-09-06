@@ -1,3 +1,4 @@
+import { readingDefaults } from "../site/preferences.js";
 import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -143,6 +144,8 @@ export async function buildStaticSite(
         documentPath: markdownPath,
         snapshot: sharedSnapshot,
         appMarkup: renderSitePage({
+          preferences: readingDefaults(config),
+          defaults: readingDefaults(config),
           snapshot: sharedSnapshot,
           document: sharedDocument ?? null,
           title: config.title,
@@ -173,11 +176,15 @@ export async function buildStaticSite(
       documentPath: sharedSnapshot.firstPath,
       snapshot: sharedSnapshot,
       appMarkup: renderSitePage({
+        preferences: readingDefaults(config),
+        defaults: readingDefaults(config),
         snapshot: sharedSnapshot,
-        document: sharedSnapshot.documents[0] ?? null,
+        document:
+          sharedSnapshot.documents.find(
+            (document) => document.path === sharedSnapshot.firstPath,
+          ) ?? null,
         title: config.title,
         mode: "static",
-        notFound: true,
       }),
       ...siteConfigValues(config),
     }),
@@ -192,10 +199,13 @@ export async function buildStaticSite(
       documentPath: null,
       snapshot: sharedSnapshot,
       appMarkup: renderSitePage({
+        preferences: readingDefaults(config),
+        defaults: readingDefaults(config),
         snapshot: sharedSnapshot,
         document: null,
         title: config.title,
         mode: "static",
+        notFound: true,
       }),
       ...siteConfigValues(config),
     }),
