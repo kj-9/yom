@@ -31,6 +31,9 @@ jobs:
       - name: Check formatting
         run: bun run format
 
+      - name: Compile package
+        run: bun run compile
+
       - name: Run tests
         run: bun run test
 
