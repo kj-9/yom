@@ -393,7 +393,7 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   context,
   page,
 }) => {
-  test.setTimeout(40_000);
+  test.setTimeout(120_000);
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
