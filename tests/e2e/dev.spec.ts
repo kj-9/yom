@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import {
   spawn,
   spawnSync,
@@ -636,9 +636,8 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   const unchangedResponse = page.waitForResponse(
     (response) => response.url() === `${baseUrl}/api/site`,
   );
-  const unchangedPath = path.join(docsRoot, "README.md");
-  const changedTime = new Date(Date.now() + 2_000);
-  await utimes(unchangedPath, changedTime, changedTime);
+  await page.waitForTimeout(500);
+  await writeFile(path.join(docsRoot, "README.md"), `${markdown("Updated")}\n`);
   await unchangedResponse;
   expect(await page.evaluate(() => window.yomMutationCount)).toBe(1);
 
