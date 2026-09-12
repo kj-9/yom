@@ -1,6 +1,6 @@
 {
   "name": "@kj-9/yom",
-  "version": "0.1.0-alpha.6",
+  "version": "0.1.0-alpha.7",
   "description": "Markdown tree viewer and static site builder",
   "license": "MIT",
   "repository": {
@@ -40,7 +40,7 @@
     "benchmark": "bun run ./scripts/benchmark.ts",
     "check:assets": "bun run ./scripts/check-assets.ts",
     "preview": "bun run ./src/cli/index.ts preview",
-    "test": "vitest run tests/unit",
+    "test": "vitest run --dir tests/unit",
     "test:e2e": "playwright test",
     "test:package": "vitest run tests/package",
     "check": "tsc --noEmit",
