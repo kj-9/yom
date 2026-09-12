@@ -142,6 +142,50 @@ describe("Vite cwd isolation", () => {
     expect(output).not.toContain("caller vite config must not be loaded");
     expect(await response.text()).toContain("caller preview dist");
   }, 15_000);
+
+  it("prints and serves the automatically selected port when the requested port is busy", async () => {
+    const callerRoot = createTempRoot();
+    await writeFile(path.join(callerRoot, "README.md"), "# Port fallback\n");
+    const requestedPort = await findOpenPort();
+    const blocker = createServer();
+    await new Promise<void>((resolve, reject) => {
+      blocker.once("error", reject);
+      blocker.listen(requestedPort, "127.0.0.1", resolve);
+    });
+
+    try {
+      const repoRoot = path.resolve(process.cwd());
+      const child = spawn(
+        "bun",
+        [
+          "run",
+          path.join(repoRoot, "bin/yom"),
+          "dev",
+          "--root",
+          callerRoot,
+          "--host",
+          "127.0.0.1",
+          "--port",
+          String(requestedPort),
+        ],
+        {
+          cwd: callerRoot,
+          env: { ...process.env, FORCE_COLOR: "0" },
+        },
+      );
+      children.push(child);
+
+      const output = await waitForDevServer(child);
+      const url = output.match(/Local:\s+(http:\/\/[^\s]+)/u)?.[1];
+      expect(url).toBeDefined();
+      expect(url).not.toContain(`:${requestedPort}/`);
+      const response = await fetch(url!);
+      expect(response.ok).toBe(true);
+      expect(await response.text()).toContain("Port fallback");
+    } finally {
+      await new Promise<void>((resolve) => blocker.close(() => resolve()));
+    }
+  }, 15_000);
 });
 
 function createTempRoot(): string {

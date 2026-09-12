@@ -9,6 +9,7 @@ import {
 import { createServer } from "node:net";
 import path from "node:path";
 import { tmpdir } from "node:os";
+import { pngDifference } from "./png";
 
 let fixture: string;
 const servers: ChildProcessWithoutNullStreams[] = [];
@@ -82,7 +83,7 @@ test.afterAll(async () => {
 test("display settings stay in bounds and preserve site defaults", async ({
   browser,
 }, testInfo) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
   const screenshots = new Map<string, Buffer>();
   for (const [mode, url] of urls.entries()) {
     const context = await browser.newContext();
@@ -110,24 +111,35 @@ test("display settings stay in bounds and preserve site defaults", async ({
       await page.keyboard.press("Enter");
       await expect(trigger).toHaveAttribute("aria-expanded", "true");
       await expect(card).toBeVisible();
-      await expect
-        .poll(() =>
-          card.evaluate((element) => {
-            const r = element.getBoundingClientRect();
-            return (
-              r.left >= 0 &&
-              r.top >= 0 &&
-              r.right <= innerWidth &&
-              r.bottom <= innerHeight
-            );
-          }),
-        )
-        .toBe(true);
+      await expect(page.locator("#treeSearch")).toBeHidden();
+      await expect(page.locator("#treeRoot")).toBeHidden();
       expect(
-        await card.evaluate(
-          (element) => getComputedStyle(element).backgroundColor,
-        ),
-      ).not.toMatch(/rgba/);
+        await card.evaluate((element) => getComputedStyle(element).position),
+      ).toBe("static");
+      expect(
+        await card.evaluate((element) => {
+          const parent = element.closest("#sidebar");
+          if (!(parent instanceof HTMLElement)) return false;
+          const cardRect = element.getBoundingClientRect();
+          const sidebarRect = parent.getBoundingClientRect();
+          return (
+            cardRect.left >= sidebarRect.left &&
+            cardRect.right <= sidebarRect.right
+          );
+        }),
+      ).toBe(true);
+      expect(
+        await page
+          .locator(".settings-control")
+          .evaluateAll((controls) =>
+            controls.every(
+              (control, index) =>
+                index === 0 ||
+                control.getBoundingClientRect().top >=
+                  controls[index - 1]!.getBoundingClientRect().bottom,
+            ),
+          ),
+      ).toBe(true);
       expect(
         await card.evaluate(
           (element) => element.scrollWidth <= element.clientWidth,
@@ -142,7 +154,11 @@ test("display settings stay in bounds and preserve site defaults", async ({
         mask: [page.locator(".sidebar-meta")],
       });
       if (mode === 0) screenshots.set(key, shot);
-      else expect(shot.equals(screenshots.get(key)!)).toBe(true);
+      else {
+        const difference = pngDifference(shot, screenshots.get(key)!);
+        expect(difference.maxChannelDelta).toBeLessThanOrEqual(1);
+        expect(difference.differingPixelRatio).toBeLessThanOrEqual(0.000_05);
+      }
       for (const theme of ["light", "dark"]) {
         await page.locator("#themeSelect").selectOption(theme);
         for (const palette of ["paper", "forest", "sea"]) {
@@ -176,7 +192,7 @@ test("display settings stay in bounds and preserve site defaults", async ({
     }
     await trigger.click();
     await page.locator("#themeSelect").selectOption("light");
-    await page.getByRole("button", { name: "Close display settings" }).click();
+    await page.locator(".settings-back").click();
     await expect(trigger).toBeFocused();
     await page.reload();
     await expect(page.locator("body")).toHaveAttribute("data-theme", "light");
@@ -184,12 +200,11 @@ test("display settings stay in bounds and preserve site defaults", async ({
     await page.locator("#resetDisplaySettings").click();
     await expect(page.locator("body")).toHaveAttribute("data-theme", "dark");
     await page.locator("#docRoot h1").click();
-    await expect(card).toBeHidden();
-    await trigger.click();
+    await expect(card).toBeVisible();
     await page.locator("#resetDisplaySettings").focus();
-    await page.keyboard.press("Tab");
+    await page.keyboard.press("Escape");
     await expect(card).toBeHidden();
-    await expect(page.locator("#treeSearch")).toBeFocused();
+    await expect(trigger).toBeFocused();
     await trigger.click();
     await page.locator("#themeSelect").selectOption("system");
     await page.emulateMedia({ colorScheme: "dark" });

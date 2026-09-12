@@ -140,14 +140,28 @@ function HydratedContent(props: {
     return () => systemTheme.removeEventListener("change", updateTheme);
   }, [preferences]);
   useEffect(() => {
-    const selected = headingFromHash(window.location.hash) ?? activeHeading;
-    for (const link of document.querySelectorAll("#outlineList a")) {
-      link.classList.toggle(
-        "active",
-        link.getAttribute("data-heading-id") === selected,
+    if (currentDocument === null || viewMode === "raw") return;
+    let frame = 0;
+    const update = (): void => {
+      frame = 0;
+      const headings = currentDocument.outline
+        .map((heading) => document.getElementById(heading.id))
+        .filter((heading): heading is HTMLElement => heading !== null);
+      const visible = headings.filter(
+        (heading) => heading.getBoundingClientRect().top <= 120,
       );
-    }
-  }, [activeHeading, currentPath]);
+      setActiveHeading((visible.at(-1) ?? headings[0])?.id ?? null);
+    };
+    const onScroll = (): void => {
+      if (frame === 0) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame !== 0) cancelAnimationFrame(frame);
+    };
+  }, [currentDocument, viewMode]);
   useEffect(() => {
     if (props.payload.mode !== "dev") return;
     const events = new EventSource("/events");

@@ -1,9 +1,10 @@
 import { fileURLToPath } from "node:url";
+import { createServer as createNetServer } from "node:net";
 import path from "node:path";
 import process from "node:process";
 
 import { cac } from "cac";
-import { createServer, preview } from "vite";
+import { createServer, preview, type ResolvedServerUrls } from "vite";
 
 import packageJson from "../../package.json" with { type: "json" };
 import { loadYomConfig, type ResolvedYomConfig } from "../core/config.js";
@@ -93,6 +94,7 @@ export async function run(options: CliOptions): Promise<void> {
   }
 
   if (options.command === "dev") {
+    const port = await resolveAvailablePort(options.host, options.port);
     const viteConfig = createYomViteConfig({
       contentRoot: path.resolve(options.root),
       config: options.siteConfig,
@@ -104,27 +106,58 @@ export async function run(options: CliOptions): Promise<void> {
       server: {
         ...viteConfig.server,
         host: options.host,
-        port: options.port,
+        port,
+        strictPort: true,
         // Starting a local server must never take focus by opening a browser.
         // Consumers can open its printed URL themselves.
         open: false,
       },
     });
     await server.listen();
-    server.printUrls();
+    printResolvedUrls(server.resolvedUrls);
     await waitForShutdown(server.close);
     return;
   }
 
+  const port = await resolveAvailablePort(options.host, options.port);
   const server = await preview({
     configFile: false,
     root: process.cwd(),
     base: options.basePath,
     build: { outDir: path.resolve(options.outDir) },
-    preview: { host: options.host, port: options.port },
+    preview: { host: options.host, port, strictPort: true },
   });
   server.printUrls();
   await waitForShutdown(server.close);
+}
+
+function printResolvedUrls(urls: ResolvedServerUrls | null): void {
+  if (!urls) throw new Error("Vite did not report a bound server URL");
+  for (const url of urls.local) console.log(`➜  Local:   ${url}`);
+  for (const url of urls.network) console.log(`➜  Network: ${url}`);
+}
+
+async function resolveAvailablePort(
+  host: string,
+  requestedPort: number,
+): Promise<number> {
+  for (let port = requestedPort; port <= 65_535; port++) {
+    if (await canListen(host, port)) return port;
+    console.warn(`Port ${port} is in use, trying another one...`);
+  }
+  throw new Error(`No available port found at or above ${requestedPort}`);
+}
+
+async function canListen(host: string, port: number): Promise<boolean> {
+  return await new Promise((resolve, reject) => {
+    const server = createNetServer();
+    server.unref();
+    server.once("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EADDRINUSE") resolve(false);
+      else reject(error);
+    });
+    server.listen(port, host, () => server.close(() => resolve(true)));
+  });
 }
 
 async function runConfigured(

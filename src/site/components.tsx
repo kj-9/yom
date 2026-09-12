@@ -1,4 +1,10 @@
 import { useSettingsPanel } from "./settings.js";
+import {
+  IconAdjustmentsHorizontal,
+  IconArrowLeft,
+  IconBook2,
+  IconCode,
+} from "@tabler/icons-preact";
 import type { ComponentChildren } from "preact";
 import type {
   DocumentPayload,
@@ -6,6 +12,11 @@ import type {
   TreeNode,
 } from "../core/sitepayload.js";
 import { defaultReadingPreferences, type ReadingPreferences } from "./state.js";
+import {
+  buildOutlineTree,
+  outlineAncestorIds,
+  type OutlineNode,
+} from "./documentui.js";
 
 export function DocumentTree(props: {
   node: TreeNode;
@@ -15,19 +26,30 @@ export function DocumentTree(props: {
   onToggleDirectory?: (path: string) => void;
 }): ComponentChildren {
   return (
-    <ul>
+    <ul class="tree">
       {props.node.children.map((node) =>
         node.type === "directory" ? (
-          <li key={node.path}>
-            <button
-              type="button"
-              class="folder"
-              aria-expanded={!props.collapsedPaths?.has(node.path)}
-              onClick={() => props.onToggleDirectory?.(node.path)}
+          <li class="tree-item" key={node.path}>
+            <details
+              open={directoryOpen(
+                node.path,
+                props.currentPath,
+                props.collapsedPaths,
+              )}
+              onToggle={(event) => {
+                const expectedOpen = directoryOpen(
+                  node.path,
+                  props.currentPath,
+                  props.collapsedPaths,
+                );
+                if (event.currentTarget.open !== expectedOpen) {
+                  props.onToggleDirectory?.(node.path);
+                }
+              }}
             >
-              {node.name}
-            </button>
-            {props.collapsedPaths?.has(node.path) ? null : (
+              <summary class="folder">
+                <span>{node.name}</span>
+              </summary>
               <DocumentTree
                 node={node}
                 currentPath={props.currentPath}
@@ -35,23 +57,25 @@ export function DocumentTree(props: {
                 collapsedPaths={props.collapsedPaths}
                 onToggleDirectory={props.onToggleDirectory}
               />
-            )}
+            </details>
           </li>
         ) : (
-          <li key={node.path}>
-            <a
-              role="button"
-              href={
-                node.path === props.currentPath
-                  ? "#docRoot"
-                  : documentHref(node.path, props.basePath)
-              }
-              aria-current={
-                node.path === props.currentPath ? "page" : undefined
-              }
-            >
-              {node.name}
-            </a>
+          <li class="tree-item" key={node.path}>
+            <div class="tree-document-row">
+              <a
+                class={`node${node.path === props.currentPath ? " active" : ""}`}
+                href={
+                  node.path === props.currentPath
+                    ? "#docRoot"
+                    : documentHref(node.path, props.basePath)
+                }
+                aria-current={
+                  node.path === props.currentPath ? "page" : undefined
+                }
+              >
+                {node.name}
+              </a>
+            </div>
           </li>
         ),
       )}
@@ -59,36 +83,53 @@ export function DocumentTree(props: {
   );
 }
 
+export function ViewModeControl(props: {
+  viewMode: "rendered" | "raw";
+  onChange?: (viewMode: "rendered" | "raw") => void;
+}): ComponentChildren {
+  return (
+    <div class="view-mode-control" aria-label="Document view">
+      <button
+        type="button"
+        class={props.viewMode === "rendered" ? "active" : undefined}
+        aria-pressed={props.viewMode === "rendered"}
+        onClick={() => props.onChange?.("rendered")}
+      >
+        <IconBook2 aria-hidden="true" size={15} stroke={1.8} />
+        Rendered
+      </button>
+      <button
+        type="button"
+        class={props.viewMode === "raw" ? "active" : undefined}
+        aria-pressed={props.viewMode === "raw"}
+        onClick={() => props.onChange?.("raw")}
+      >
+        <IconCode aria-hidden="true" size={15} stroke={1.8} />
+        Source
+      </button>
+    </div>
+  );
+}
+
+function directoryOpen(
+  directoryPath: string,
+  currentPath: string | null,
+  collapsedPaths: ReadonlySet<string> | undefined,
+): boolean {
+  if (collapsedPaths !== undefined) return !collapsedPaths.has(directoryPath);
+  return currentPath?.startsWith(`${directoryPath}/`) ?? false;
+}
+
 export function DocumentView(props: {
   document: DocumentPayload;
   viewMode?: "rendered" | "raw";
-  onViewModeChange?: (viewMode: "rendered" | "raw") => void;
 }): ComponentChildren {
-  const { document, viewMode = "rendered", onViewModeChange } = props;
+  const { document, viewMode = "rendered" } = props;
+  const needsPrimaryHeading = !document.outline.some(
+    (heading) => heading.level === 1,
+  );
   return (
     <div id="documentPane">
-      <div class="doc-meta">{document.path}</div>
-      <h2 id="documentTitle" class="document-title">
-        {document.metadata.title}
-      </h2>
-      <div class="view-toggle" role="group" aria-label="Document view">
-        <button
-          id="renderedMode"
-          type="button"
-          aria-pressed={viewMode === "rendered"}
-          onClick={() => onViewModeChange?.("rendered")}
-        >
-          Rendered
-        </button>
-        <button
-          id="rawMode"
-          type="button"
-          aria-pressed={viewMode === "raw"}
-          onClick={() => onViewModeChange?.("raw")}
-        >
-          Raw
-        </button>
-      </div>
       <details
         id="frontMatter"
         class="front-matter"
@@ -109,10 +150,17 @@ export function DocumentView(props: {
           <code>{document.raw}</code>
         </pre>
       ) : (
-        <div
-          id="docRoot"
-          dangerouslySetInnerHTML={{ __html: documentHtml(document) }}
-        />
+        <div id="docRoot">
+          {needsPrimaryHeading ? (
+            <h1 id="documentTitle" class="document-title">
+              {document.metadata.title}
+            </h1>
+          ) : null}
+          <div
+            class="rendered-document"
+            dangerouslySetInnerHTML={{ __html: documentHtml(document) }}
+          />
+        </div>
       )}
       <Pagination
         previous={document.pagination.previous}
@@ -131,24 +179,60 @@ export function Outline({
   activeHeading?: string | null;
   onSelectHeading?: (id: string, event: MouseEvent) => void;
 }): ComponentChildren {
+  const tree = buildOutlineTree(document.outline);
+  const ancestorIds = outlineAncestorIds(tree, activeHeading);
   return (
     <aside id="outlinePanel" class="outline-panel" aria-label="On this page">
       <h2 class="outline-title">On this page</h2>
-      <ul id="outlineList" class="outline-list">
-        {document.outline.map((heading) => (
-          <li key={heading.id}>
-            <a
-              href={`#${heading.id}`}
-              class={activeHeading === heading.id ? "active" : undefined}
-              data-heading-id={heading.id}
-              onClick={(event) => onSelectHeading?.(heading.id, event)}
-            >
-              {heading.text}
-            </a>
-          </li>
-        ))}
-      </ul>
+      <OutlineList
+        nodes={tree}
+        activeHeading={activeHeading}
+        ancestorIds={ancestorIds}
+        onSelectHeading={onSelectHeading}
+        root
+      />
     </aside>
+  );
+}
+
+function OutlineList(props: {
+  nodes: readonly OutlineNode[];
+  activeHeading?: string | null;
+  ancestorIds: ReadonlySet<string>;
+  onSelectHeading?: (id: string, event: MouseEvent) => void;
+  root?: boolean;
+}): ComponentChildren {
+  return (
+    <ul id={props.root ? "outlineList" : undefined} class="outline-list">
+      {props.nodes.map((node) => {
+        const active = props.activeHeading === node.heading.id;
+        return (
+          <li
+            key={node.heading.id}
+            class={
+              props.ancestorIds.has(node.heading.id)
+                ? "outline-ancestor"
+                : undefined
+            }
+          >
+            <a
+              href={`#${node.heading.id}`}
+              class={active ? "active" : undefined}
+              aria-current={active ? "location" : undefined}
+              data-heading-id={node.heading.id}
+              onClick={(event) =>
+                props.onSelectHeading?.(node.heading.id, event)
+              }
+            >
+              {node.heading.text}
+            </a>
+            {node.children.length > 0 ? (
+              <OutlineList {...props} nodes={node.children} root={false} />
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -193,13 +277,6 @@ export function SettingsPanel(props: {
       class="settings-panel"
       ref={settings.panelRef}
       onToggle={(event) => settings.setOpen(event.currentTarget.open)}
-      onFocusOut={(event) => {
-        if (
-          event.relatedTarget instanceof Node &&
-          !event.currentTarget.contains(event.relatedTarget)
-        )
-          settings.close(false);
-      }}
     >
       <summary
         class="settings-toggle"
@@ -209,7 +286,7 @@ export function SettingsPanel(props: {
         aria-expanded={settings.open}
         aria-label="Display settings"
       >
-        <span aria-hidden="true">⚙</span>
+        <IconAdjustmentsHorizontal aria-hidden="true" size={18} stroke={1.8} />
         <span>Display settings</span>
       </summary>
       <section
@@ -219,25 +296,62 @@ export function SettingsPanel(props: {
         aria-label="Display settings"
       >
         <div class="settings-heading">
-          <h2>Display settings</h2>
           <button
             type="button"
-            class="settings-close"
-            aria-label="Close display settings"
+            class="settings-back"
             onClick={() => settings.close()}
           >
-            Close
+            <IconArrowLeft aria-hidden="true" size={16} stroke={1.8} />
+            Documents
           </button>
+          <h2>Display</h2>
         </div>
-        <div class="settings-grid">
-          <label class="settings-control">
-            <span class="settings-label">Theme</span>
+        <div class="reading-presets">
+          <div class="settings-section-heading">
+            <span>Reading presets</span>
+            <button
+              class={`auto-theme${preferences.theme === "system" ? " active" : ""}`}
+              type="button"
+              aria-pressed={preferences.theme === "system"}
+              onClick={() => onChange({ theme: "system" })}
+            >
+              Auto <small>(system)</small>
+            </button>
+          </div>
+          <div class="preset-grid" role="group" aria-label="Reading preset">
+            <PresetButton
+              name="Paper"
+              tone="paper"
+              active={
+                preferences.theme === "light" && preferences.palette === "paper"
+              }
+              onClick={() => onChange({ theme: "light", palette: "paper" })}
+            />
+            <PresetButton
+              name="Dusk"
+              tone="dusk"
+              active={
+                preferences.theme === "dark" && preferences.palette === "sea"
+              }
+              onClick={() => onChange({ theme: "dark", palette: "sea" })}
+            />
+            <PresetButton
+              name="Night"
+              tone="night"
+              active={
+                preferences.theme === "dark" && preferences.palette === "paper"
+              }
+              onClick={() => onChange({ theme: "dark", palette: "paper" })}
+            />
+          </div>
+          <div class="legacy-settings" aria-hidden="true">
             <select
               id="themeSelect"
+              tabIndex={-1}
               value={preferences.theme}
               onChange={(event) =>
                 onChange({
-                  theme: (event.currentTarget as HTMLSelectElement)
+                  theme: event.currentTarget
                     .value as ReadingPreferences["theme"],
                 })
               }
@@ -246,15 +360,13 @@ export function SettingsPanel(props: {
               <option value="light">Light</option>
               <option value="dark">Dark</option>
             </select>
-          </label>
-          <label class="settings-control">
-            <span class="settings-label">Palette</span>
             <select
               id="paletteSelect"
+              tabIndex={-1}
               value={preferences.palette}
               onChange={(event) =>
                 onChange({
-                  palette: (event.currentTarget as HTMLSelectElement)
+                  palette: event.currentTarget
                     .value as ReadingPreferences["palette"],
                 })
               }
@@ -263,41 +375,38 @@ export function SettingsPanel(props: {
               <option value="forest">Forest</option>
               <option value="sea">Sea</option>
             </select>
-          </label>
-          <label class="settings-control">
-            <span class="settings-label">Text size</span>
-            <select
-              id="fontSizeSelect"
-              value={preferences.fontSize}
-              onChange={(event) =>
-                onChange({
-                  fontSize: (event.currentTarget as HTMLSelectElement)
-                    .value as ReadingPreferences["fontSize"],
-                })
-              }
-            >
-              <option value="small">Small</option>
-              <option value="medium">Medium</option>
-              <option value="large">Large</option>
-            </select>
-          </label>
-          <label class="settings-control">
-            <span class="settings-label">Page width</span>
-            <select
-              id="contentWidthSelect"
-              value={preferences.contentWidth}
-              onChange={(event) =>
-                onChange({
-                  contentWidth: (event.currentTarget as HTMLSelectElement)
-                    .value as ReadingPreferences["contentWidth"],
-                })
-              }
-            >
-              <option value="compact">Compact</option>
-              <option value="comfortable">Comfortable</option>
-              <option value="wide">Wide</option>
-            </select>
-          </label>
+          </div>
+        </div>
+        <div class="settings-grid">
+          <SegmentedSetting
+            id="fontSizeSelect"
+            label="Text size"
+            value={preferences.fontSize}
+            options={[
+              ["small", "S"],
+              ["medium", "M"],
+              ["large", "L"],
+            ]}
+            onChange={(fontSize) =>
+              onChange({ fontSize: fontSize as ReadingPreferences["fontSize"] })
+            }
+          />
+          <SegmentedSetting
+            id="contentWidthSelect"
+            label="Content width"
+            value={preferences.contentWidth}
+            options={[
+              ["compact", "Compact"],
+              ["comfortable", "Default"],
+              ["wide", "Spacious"],
+            ]}
+            onChange={(contentWidth) =>
+              onChange({
+                contentWidth:
+                  contentWidth as ReadingPreferences["contentWidth"],
+              })
+            }
+          />
         </div>
         <label class="switch-control">
           <span>
@@ -325,6 +434,71 @@ export function SettingsPanel(props: {
         </button>
       </section>
     </details>
+  );
+}
+
+function PresetButton(props: {
+  name: string;
+  tone: "paper" | "dusk" | "night";
+  active: boolean;
+  onClick: () => void;
+}): ComponentChildren {
+  return (
+    <button
+      class={`preset${props.active ? " active" : ""}`}
+      type="button"
+      aria-pressed={props.active}
+      onClick={props.onClick}
+    >
+      <span class={`preset-preview ${props.tone}`} aria-hidden="true">
+        <strong>Aa</strong>
+        <i />
+        <i />
+        <i />
+      </span>
+      <span>{props.name}</span>
+    </button>
+  );
+}
+
+function SegmentedSetting(props: {
+  id: string;
+  label: string;
+  value: string;
+  options: readonly (readonly [string, string])[];
+  onChange: (value: string) => void;
+}): ComponentChildren {
+  return (
+    <fieldset class="segmented-setting">
+      <legend>{props.label}</legend>
+      <div class="segmented-options">
+        {props.options.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            class={props.value === value ? "active" : undefined}
+            aria-pressed={props.value === value}
+            onClick={() => props.onChange(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <select
+        id={props.id}
+        class="legacy-settings"
+        tabIndex={-1}
+        aria-hidden="true"
+        value={props.value}
+        onChange={(event) => props.onChange(event.currentTarget.value)}
+      >
+        {props.options.map(([value, label]) => (
+          <option value={value} key={value}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </fieldset>
   );
 }
 

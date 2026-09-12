@@ -93,6 +93,7 @@ export default defineConfig({
   title: "Project docs",
   lang: "ja",
   include: ["README.md", "docs/**/*.md"],
+  includeIgnored: ["docs/generated/**/*.md", "docs/generated/assets/**"],
   exclude: ["docs/drafts/**"],
   initialPage: "README.md",
   order: ["README.md", "docs"],
@@ -110,6 +111,14 @@ export default defineConfig({
 Without a config file, the document language remains `und`; yom does not infer a
 language from Markdown body text. Invalid or unknown configuration values stop the
 command with an explanatory error.
+
+yom respects `.gitignore` by default. Use `includeIgnored` only for the exact
+root-relative Markdown and asset globs that should be published despite being
+ignored. A path is available only when it matches `include`, does not match
+`exclude`, and is either not Git-ignored or matches `includeIgnored`; `exclude`
+always wins. Referenced assets inside an ignored directory need their own
+`includeIgnored` match. Avoid broad patterns such as `node_modules/**`, and do
+not opt in generated files that may contain secrets.
 
 `bun run build` bundles the same browser app used by dev, writes rendered document data
 to `dist/data/`, creates direct route shells in `dist/docs/`, copies referenced files to
@@ -139,14 +148,25 @@ when the site is hosted below a subpath such as GitHub Pages.
   the outline is hidden when space is limited
 - Below 900px, **Documents** opens an overlay drawer without moving the document;
   select a document, press `Escape`, or click the backdrop to close it
+- Document folders use native disclosure controls. The current document's folders
+  start open, unrelated folders start closed, and static pages remain expandable
+  without JavaScript. The disclosure triangle is the only folder marker, and file
+  names use compact indentation without an extra bullet or icon
+- A compact **Rendered** / **Source** switch sits above and outside the document,
+  keeping both the tree row and reading surface focused on content
 - Keyboard focus stays inside the open drawer and returns to **Documents** when closed
 - Wide code and tables scroll within the document instead of widening the page
 - Without JavaScript, the static document list remains available at every width
-- The page outline stays visible while a long document scrolls when space permits
-- Display settings include system/light/dark themes, palette, text size, page
-  width, and outline visibility; browser choices are saved locally
-- Display settings stay within the viewport, including short mobile screens;
-  close with `Escape`, the close button, or an outside click
+- Markdown H1 remains the document heading. When a document has no H1, its title
+  is added as the first heading; file paths and controls stay outside the document
+- The page outline reflects heading nesting and marks the current section and its
+  ancestors while a long document scrolls
+- Display settings offer previewable Paper, Dusk, and Night reading presets,
+  optional system appearance, segmented text-size and page-width controls, and
+  outline visibility; browser choices are saved locally
+- Display settings replace the document tree within the left pane and use a
+  single-column layout. Use **Documents** or `Escape` to return to the tree; the
+  mobile drawer retains the distinct **Close documents** action
 - The system theme follows operating-system appearance changes
 - Use **Reset display settings** to return to the `yom.config.ts` defaults
 - Front matter supports simple scalar values and inline arrays such as

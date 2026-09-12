@@ -4,13 +4,18 @@ import path from "node:path";
 import { mkdtempSync } from "node:fs";
 import { rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { buildSiteIndex } from "../../src/core/scan";
+import {
+  buildSiteIndex,
+  listAssetFiles,
+  listExistingPaths,
+} from "../../src/core/scan";
 
 const tempRoots: string[] = [];
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const root of tempRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
   }
@@ -82,6 +87,65 @@ describe("buildSiteIndex", () => {
         ],
       },
     });
+  });
+
+  it("opts specific ignored descendants in while exclude still wins", async () => {
+    const root = createTempRoot();
+    initGitRepo(root);
+    await write(root, ".gitignore", "generated/\n");
+    await write(root, "visible.md", "# Visible");
+    await write(root, "generated/keep.md", "# Keep");
+    await write(root, "generated/drop.md", "# Drop");
+    await write(root, "generated/image.png", "png");
+    await write(root, "generated/private/secret.md", "# Secret");
+
+    const options = {
+      include: ["**/*.md"],
+      includeIgnored: ["generated/keep.md", "generated/image.png"],
+      exclude: ["generated/private/**", "generated/image.png"],
+      initialPage: null,
+      order: [],
+    };
+    await expect(listExistingPaths(root, options)).resolves.toEqual(
+      new Set(["generated/keep.md", "visible.md"]),
+    );
+    await expect(listAssetFiles(root, options)).resolves.toEqual([]);
+    await expect(buildSiteIndex(root, options)).resolves.toMatchObject({
+      firstPath: "generated/keep.md",
+    });
+  });
+
+  it("handles nested ignore rules and a large ignored entry set in bounded batches", async () => {
+    const root = createTempRoot();
+    initGitRepo(root);
+    await write(root, ".gitignore", "ignored-*.md\nnested/*.md\n");
+    await write(root, "visible.md", "# Visible");
+    await write(root, "nested/ignored.md", "# Ignored");
+    await write(root, "nested/visible.txt", "visible");
+    await Promise.all(
+      Array.from({ length: 5_500 }, (_, index) =>
+        write(
+          root,
+          `ignored-${index.toString().padStart(4, "0")}-${"x".repeat(180)}.md`,
+          "# Ignored",
+        ),
+      ),
+    );
+
+    await expect(listExistingPaths(root)).resolves.toEqual(
+      new Set(["nested/visible.txt", "visible.md"]),
+    );
+  }, 20_000);
+
+  it("reports git ignore command failures with the scanned root", async () => {
+    const root = createTempRoot();
+    initGitRepo(root);
+    await write(root, "visible.md", "# Visible");
+    vi.stubEnv("PATH", "");
+
+    await expect(listExistingPaths(root)).rejects.toThrow(
+      `failed to evaluate .gitignore for ${root}`,
+    );
   });
 
   it("applies configured filters, initial page, and order", async () => {

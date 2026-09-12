@@ -92,6 +92,7 @@ export default defineConfig({
   title: "Project docs",
   lang: "ja",
   include: ["README.md", "docs/**/*.md"],
+  includeIgnored: ["docs/generated/**/*.md", "docs/generated/assets/**"],
   exclude: ["docs/drafts/**"],
   initialPage: "README.md",
   order: ["README.md", "docs"],
@@ -108,6 +109,13 @@ export default defineConfig({
 
 設定ファイルがない場合、文書言語は`und`のままです。Markdown本文から言語を
 推測しません。不正な値や未知の項目がある場合は、理由を示して起動を停止します。
+
+yomは既定で`.gitignore`を尊重します。無視されていても公開するMarkdownとassetだけを、
+root相対globで`includeIgnored`へ指定してください。pathが利用可能になる条件は、`include`に
+一致し、`exclude`に一致せず、かつGitの無視対象でないか`includeIgnored`に一致することです。
+常に`exclude`が優先されます。無視directory内の参照assetも、それ自身が`includeIgnored`へ
+一致する必要があります。`node_modules/**`のような広い指定や、秘密情報を含み得る生成物の
+opt-inは避けてください。
 
 `bun run build`はdevと同じブラウザアプリをbundleし、レンダリング済み文書を
 `dist/data/`、直接アクセス用ページを`dist/docs/`、参照ファイルを`dist/assets/`
@@ -137,12 +145,20 @@ export default defineConfig({
   幅が足りない場合はページ内見出しを非表示にする
 - 900px未満ではDocumentsから本文位置を変えずにドロワーを開き、文書選択・
   `Escape`・背景クリックで閉じられる
+- 文書folderはブラウザ標準の開閉操作を使い、現在文書の祖先だけを初期展開する。
+  JavaScript無効の静的ページでもfolderを開いて文書へ移動できる。folderの記号は
+  展開三角形だけとし、文書名には追加のbulletやiconを付けず狭いindentで表示する
+- 本文の上・本文面の外に**Rendered** / **Source**切替を置き、文書rowと本文を内容に集中させる
 - ドロワー内でキーボード操作が完結し、閉じるとDocumentsへフォーカスが戻る
 - 幅の広いコードと表は、ページ全体ではなく文書要素内で横スクロールできる
 - JavaScript無効時も、静的サイトの文書一覧は画面幅にかかわらず利用できる
-- 表示幅が確保できる場合、右側の見出し一覧はスクロール中も画面内に追従
-- 表示設定ではテーマ、配色、文字サイズ、本文幅、見出し一覧の表示を変更可能
-- 表示設定は高さの低いモバイル画面でも画面内に収まり、Escape・閉じるボタン・外側クリックで閉じられる
+- MarkdownのH1を文書見出しとして維持し、H1がない文書だけtitleを先頭見出しとして
+  補完する。文書pathと表示操作は本文の外に置く
+- 右側の見出し一覧は階層を表現し、スクロール中の現在sectionとその祖先を示す
+- 表示設定では見た目を確認できるPaper・Dusk・Nightの読書preset、OS連動、
+  segmented controlによる文字サイズと本文幅、見出し一覧の表示を変更可能
+- 表示設定は左ペイン内で文書treeと切り替えて一列表示し、**Documents**または
+  Escapeでtreeへ戻る。モバイル文書ドロワーは区別できる**Close documents**で閉じる
 - システムテーマはOSの外観変更に追従する
 - 表示設定はブラウザに保存され、Resetで`yom.config.ts`の既定値へ戻せる
 - front matterでは単純な値と`tags: [one, two]`形式の配列を利用可能

@@ -14,6 +14,7 @@ import {
 } from "../core/scan.js";
 import type { DevFileEvent } from "./server.js";
 import {
+  matchesGlobPath,
   matchesConfigPath,
   resolveConfig,
   type ResolvedYomConfig,
@@ -47,7 +48,10 @@ export class DevContentRepository {
   constructor(root: string, config: ResolvedYomConfig = resolveConfig({})) {
     this.root = path.resolve(root);
     this.config = config;
-    this.snapshot = buildSiteIndexFromPaths(this.root, [], config);
+    this.snapshot = buildSiteIndexFromPaths(this.root, [], {
+      ...config,
+      initialPage: null,
+    });
     this.ready = this.initialize();
   }
 
@@ -134,6 +138,13 @@ export class DevContentRepository {
 
   private applyNow(event: DevFileEvent): boolean {
     if (
+      this.config.exclude.some((pattern) =>
+        matchesGlobPath(event.path, pattern),
+      )
+    ) {
+      return false;
+    }
+    if (
       event.kind === "document" &&
       !matchesConfigPath(event.path, this.config)
     ) {
@@ -148,7 +159,7 @@ export class DevContentRepository {
       if (this.existingPaths.has(event.path)) {
         return false;
       }
-      if (isGitIgnored(this.root, event.path)) {
+      if (isGitIgnored(this.root, event.path, this.config)) {
         return false;
       }
       this.existingPaths.add(event.path);
@@ -176,7 +187,7 @@ export class DevContentRepository {
 
   private async initialize(): Promise<void> {
     this.searchCache.clear();
-    this.existingPaths = await listExistingPaths(this.root);
+    this.existingPaths = await listExistingPaths(this.root, this.config);
     this.snapshot = buildSiteIndexFromPaths(
       this.root,
       this.existingPaths,

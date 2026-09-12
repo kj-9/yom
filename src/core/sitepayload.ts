@@ -58,7 +58,13 @@ export type SiteSnapshot = {
 export type SitePayloadOptions = {
   config: Pick<
     ResolvedYomConfig,
-    "include" | "exclude" | "initialPage" | "order" | "basePath" | "lang"
+    | "include"
+    | "includeIgnored"
+    | "exclude"
+    | "initialPage"
+    | "order"
+    | "basePath"
+    | "lang"
   >;
   mode?: "static" | "dev";
   existingPaths?: Iterable<string>;
@@ -85,7 +91,8 @@ export async function buildSiteSnapshot(
 ): Promise<SiteSnapshot> {
   const resolvedRoot = path.resolve(root);
   const existingPaths = new Set(
-    options.existingPaths ?? (await listExistingPaths(resolvedRoot)),
+    options.existingPaths ??
+      (await listExistingPaths(resolvedRoot, options.config)),
   );
   const index = buildSiteIndexFromPaths(
     resolvedRoot,

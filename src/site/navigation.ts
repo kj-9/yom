@@ -65,7 +65,7 @@ export function useMobileNavigation(
         ...(sidebarRef.current?.querySelectorAll<HTMLElement>(
           'a[href], button, input, select, summary, [tabindex="0"]',
         ) ?? []),
-      ].filter((element) => element.getClientRects().length > 0);
+      ].filter(isAvailableControl);
       const first = controls[0];
       const last = controls[controls.length - 1];
       if (event.shiftKey && document.activeElement === first) {
@@ -81,4 +81,13 @@ export function useMobileNavigation(
   }, [mobile, open]);
 
   return { mobile, sidebarRef, toggleRef, mainRef };
+}
+
+function isAvailableControl(element: HTMLElement): boolean {
+  if (element.closest("[hidden]") !== null) return false;
+  const closedDetails = element.closest("details:not([open])");
+  if (closedDetails === null) return true;
+  return (
+    element.tagName === "SUMMARY" && element.parentElement === closedDetails
+  );
 }

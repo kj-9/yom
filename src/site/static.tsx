@@ -1,7 +1,12 @@
 import type { ComponentChildren, RefObject } from "preact";
 
 import type { DocumentPayload, SiteSnapshot } from "../core/sitepayload.js";
-import { DocumentTree, DocumentView, Outline } from "./components.js";
+import {
+  DocumentTree,
+  DocumentView,
+  Outline,
+  ViewModeControl,
+} from "./components.js";
 import { SettingsPanel } from "./components.js";
 import { defaultReadingPreferences, type ReadingPreferences } from "./state.js";
 
@@ -97,7 +102,7 @@ export function StaticSitePage(props: StaticSitePageProps): ComponentChildren {
             aria-label="Close documents"
             onClick={() => onNavigationChange?.(false)}
           >
-            Close
+            Close documents
           </button>
           <div class="sidebar-header">
             <h1 class="brand">{title}</h1>
@@ -110,12 +115,6 @@ export function StaticSitePage(props: StaticSitePageProps): ComponentChildren {
               </div>
             </div>
           </div>
-          <SettingsPanel
-            preferences={preferences}
-            defaults={props.defaults}
-            available={!mobile || navigationOpen}
-            onChange={onPreferencesChange}
-          />
           <label class="search">
             <span class="search-label">Filter</span>
             <input
@@ -135,28 +134,43 @@ export function StaticSitePage(props: StaticSitePageProps): ComponentChildren {
               node={filterTree(snapshot, searchQuery)}
               currentPath={selectedDocument?.path ?? null}
               basePath={snapshot.basePath}
-              collapsedPaths={collapsedPaths}
+              collapsedPaths={searchQuery ? new Set() : collapsedPaths}
               onToggleDirectory={onToggleDirectory}
             />
           </nav>
+          <SettingsPanel
+            preferences={preferences}
+            defaults={props.defaults}
+            available={!mobile || navigationOpen}
+            onChange={onPreferencesChange}
+          />
         </section>
         <div id="sidebarResizer" class="sidebar-resizer" aria-hidden="true" />
         <main id="mainContent" ref={mainRef}>
           <div class="reader-shell">
-            <article class="content-panel">
-              {selectedDocument === null ? (
-                <p id="docRoot">
-                  {notFound ? "Page not found." : "No Markdown files found."}
-                </p>
-              ) : (
-                <DocumentView
-                  key={selectedDocument.path}
-                  document={selectedDocument}
-                  viewMode={viewMode}
-                  onViewModeChange={onViewModeChange}
-                />
+            <div class="reader-column">
+              {selectedDocument === null ? null : (
+                <div class="document-toolbar">
+                  <ViewModeControl
+                    viewMode={viewMode}
+                    onChange={onViewModeChange}
+                  />
+                </div>
               )}
-            </article>
+              <article class="content-panel">
+                {selectedDocument === null ? (
+                  <p id="docRoot">
+                    {notFound ? "Page not found." : "No Markdown files found."}
+                  </p>
+                ) : (
+                  <DocumentView
+                    key={selectedDocument.path}
+                    document={selectedDocument}
+                    viewMode={viewMode}
+                  />
+                )}
+              </article>
+            </div>
             {selectedDocument === null || viewMode === "raw" ? null : (
               <Outline
                 document={selectedDocument}

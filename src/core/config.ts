@@ -8,6 +8,7 @@ export type YomConfig = {
   title?: string;
   lang?: string;
   include?: string[];
+  includeIgnored?: string[];
   exclude?: string[];
   initialPage?: string;
   order?: string[];
@@ -25,6 +26,7 @@ export type ResolvedYomConfig = {
   title: string;
   lang: string;
   include: string[];
+  includeIgnored: string[];
   exclude: string[];
   initialPage: string | null;
   order: string[];
@@ -44,6 +46,7 @@ const ALLOWED_KEYS = new Set([
   "title",
   "lang",
   "include",
+  "includeIgnored",
   "exclude",
   "initialPage",
   "order",
@@ -111,6 +114,7 @@ export function resolveConfig(
     title,
     lang,
     include: stringArray(value.include, "include", ["**/*.md"]),
+    includeIgnored: stringArray(value.includeIgnored, "includeIgnored", []),
     exclude: stringArray(value.exclude, "exclude", []),
     initialPage,
     order: stringArray(value.order, "order", []),
@@ -154,6 +158,13 @@ export function matchesConfigPath(
     config.include.some((pattern) => globMatches(relativePath, pattern)) &&
     !config.exclude.some((pattern) => globMatches(relativePath, pattern))
   );
+}
+
+export function matchesGlobPath(
+  relativePath: string,
+  pattern: string,
+): boolean {
+  return globMatches(relativePath, pattern);
 }
 
 async function findConfigPath(options: {

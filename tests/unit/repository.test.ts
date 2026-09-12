@@ -92,6 +92,54 @@ describe("DevContentRepository", () => {
     ]);
   });
 
+  it("tracks opted-in ignored documents across add, change, remove, and ignore reload", async () => {
+    const root = await createRoot();
+    initGit(root);
+    await write(root, ".gitignore", "generated/\n");
+    const repository = new DevContentRepository(
+      root,
+      resolveConfig({ includeIgnored: ["generated/keep.md"] }),
+    );
+
+    await write(root, "generated/keep.md", "# First\n");
+    await expect(
+      repository.apply({
+        kind: "document",
+        action: "add",
+        path: "generated/keep.md",
+      }),
+    ).resolves.toBe(true);
+    await write(root, "generated/keep.md", "# Changed\n");
+    await expect(
+      repository.apply({
+        kind: "document",
+        action: "change",
+        path: "generated/keep.md",
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      repository.getDocument("generated/keep.md"),
+    ).resolves.toMatchObject({ raw: "# Changed\n" });
+
+    await write(root, ".gitignore", "generated/\nvisible.md\n");
+    await repository.reload();
+    await expect(
+      repository.getDocument("generated/keep.md"),
+    ).resolves.toMatchObject({ path: "generated/keep.md" });
+
+    await rm(path.join(root, "generated/keep.md"));
+    await expect(
+      repository.apply({
+        kind: "document",
+        action: "remove",
+        path: "generated/keep.md",
+      }),
+    ).resolves.toBe(true);
+    await expect(repository.getDocument("generated/keep.md")).rejects.toThrow(
+      "missing markdown file",
+    );
+  });
+
   it("does not serve documents excluded by configuration", async () => {
     const root = await createRoot();
     await write(root, "visible.md", "# Visible\n");

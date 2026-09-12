@@ -60,6 +60,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "@tabler/icons-preact": "3.46.0",
     "cac": "^6.7.14",
     "markdown-it": "^14.1.0",
     "mermaid": "^11.12.0",

@@ -2,7 +2,11 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-import { matchesConfigPath, type ResolvedYomConfig } from "./config.js";
+import {
+  matchesConfigPath,
+  matchesGlobPath,
+  type ResolvedYomConfig,
+} from "./config.js";
 
 export type TreeNode = {
   name: string;
@@ -20,14 +24,21 @@ export type SiteIndexSnapshot = {
 export type SiteIndexOptions = Pick<
   ResolvedYomConfig,
   "include" | "exclude" | "initialPage" | "order"
+> &
+  Partial<Pick<ResolvedYomConfig, "includeIgnored">>;
+
+type DiscoveryOptions = Partial<
+  Pick<ResolvedYomConfig, "includeIgnored" | "exclude">
 >;
+
+const GIT_IGNORE_BATCH_BYTES = 128 * 1024;
 
 export async function buildSiteIndex(
   root: string,
   options?: SiteIndexOptions,
 ): Promise<SiteIndexSnapshot> {
   const resolvedRoot = path.resolve(root);
-  const existingPaths = await listExistingPaths(resolvedRoot);
+  const existingPaths = await listExistingPaths(resolvedRoot, options);
   return buildSiteIndexFromPaths(resolvedRoot, existingPaths, options);
 }
 
@@ -141,35 +152,14 @@ function findFirstPath(node: TreeNode): string | null {
   return null;
 }
 
-async function gitignoredPaths(root: string): Promise<Set<string>> {
-  const candidates = await collectCandidates(root, root);
-  if (candidates.length === 0) {
-    return new Set();
+export function isGitIgnored(
+  root: string,
+  relativePath: string,
+  options: DiscoveryOptions = {},
+): boolean {
+  if (isIncludedIgnored(relativePath, options.includeIgnored ?? [])) {
+    return false;
   }
-
-  const result = spawnSync("git", ["check-ignore", "--stdin"], {
-    cwd: root,
-    input: `${candidates.join("\n")}\n`,
-    encoding: "utf-8",
-  });
-
-  if (result.error !== undefined) {
-    return new Set();
-  }
-
-  if (![0, 1].includes(result.status ?? 1)) {
-    return new Set();
-  }
-
-  return new Set(
-    result.stdout
-      .split(/\r?\n/u)
-      .map((line) => line.trim().replace(/\/$/u, ""))
-      .filter((line) => line.length > 0),
-  );
-}
-
-export function isGitIgnored(root: string, relativePath: string): boolean {
   const result = spawnSync(
     "git",
     ["check-ignore", "--quiet", "--", relativePath],
@@ -178,48 +168,41 @@ export function isGitIgnored(root: string, relativePath: string): boolean {
       encoding: "utf-8",
     },
   );
-  return result.status === 0;
+  if (result.error !== undefined)
+    throw gitIgnoreError(root, result.error.message);
+  if (result.status === 0) return true;
+  if (result.status === 1) return false;
+  if (result.status === 128 && !isGitWorkTree(path.resolve(root))) return false;
+  throw gitIgnoreError(root, result.stderr);
 }
 
-async function collectCandidates(
-  current: string,
-  base: string,
-): Promise<string[]> {
-  const entries = await readdir(current, { withFileTypes: true });
-  const candidates: string[] = [];
-
-  for (const entry of entries) {
-    if (entry.name.startsWith(".")) {
-      continue;
-    }
-
-    const absolutePath = path.join(current, entry.name);
-    const relativePath = toPosixPath(path.relative(base, absolutePath));
-    candidates.push(relativePath);
-
-    if (entry.isDirectory()) {
-      candidates.push(...(await collectCandidates(absolutePath, base)));
-    }
-  }
-
-  return candidates;
-}
-
-export async function listExistingPaths(root: string): Promise<Set<string>> {
+export async function listExistingPaths(
+  root: string,
+  options: DiscoveryOptions = {},
+): Promise<Set<string>> {
   const resolvedRoot = path.resolve(root);
-  const ignoredPaths = await gitignoredPaths(resolvedRoot);
-  const collected = await collectExistingPaths(
-    resolvedRoot,
-    resolvedRoot,
-    ignoredPaths,
-  );
+  const gitManaged = isGitWorkTree(resolvedRoot);
+  const collected = await collectExistingPaths(resolvedRoot, resolvedRoot, {
+    gitManaged,
+    includeIgnored: options.includeIgnored ?? [],
+    exclude: options.exclude ?? [],
+  });
   return new Set(collected);
 }
 
-export async function listAssetFiles(root: string): Promise<string[]> {
-  const resolvedRoot = path.resolve(root);
-  const ignoredPaths = await gitignoredPaths(resolvedRoot);
-  return collectAssetFiles(resolvedRoot, resolvedRoot, ignoredPaths);
+export async function listAssetFiles(
+  root: string,
+  options: DiscoveryOptions = {},
+): Promise<string[]> {
+  const existingPaths = await listExistingPaths(root, options);
+  return [...existingPaths]
+    .filter(
+      (relativePath) =>
+        path.posix.extname(relativePath).toLowerCase() !== ".md",
+    )
+    .sort((left, right) =>
+      left.localeCompare(right, undefined, { sensitivity: "base" }),
+    );
 }
 
 function toPosixPath(value: string): string {
@@ -229,30 +212,47 @@ function toPosixPath(value: string): string {
 async function collectExistingPaths(
   current: string,
   base: string,
-  ignoredPaths: Set<string>,
+  options: {
+    gitManaged: boolean;
+    includeIgnored: string[];
+    exclude: string[];
+  },
 ): Promise<string[]> {
   const entries = await readdir(current, { withFileTypes: true });
   const collected: string[] = [];
+  const visibleEntries = entries.filter((entry) => !entry.name.startsWith("."));
+  const relativePaths = visibleEntries.map((entry) =>
+    toPosixPath(path.relative(base, path.join(current, entry.name))),
+  );
+  const ignoredPaths = options.gitManaged
+    ? checkIgnoredPaths(base, relativePaths)
+    : new Set<string>();
 
-  for (const entry of entries) {
-    if (entry.name.startsWith(".")) {
-      continue;
-    }
-
+  for (const [index, entry] of visibleEntries.entries()) {
     const absolutePath = path.join(current, entry.name);
-    const relativePath = toPosixPath(path.relative(base, absolutePath));
-    if (ignoredPaths.has(relativePath)) {
-      continue;
-    }
+    const relativePath = relativePaths[index];
+    const ignored = ignoredPaths.has(relativePath);
+    const optedIn = isIncludedIgnored(relativePath, options.includeIgnored);
+    const excluded = options.exclude.some((pattern) =>
+      matchesGlobPath(relativePath, pattern),
+    );
 
     if (entry.isDirectory()) {
+      if (
+        excluded ||
+        (ignored &&
+          !optedIn &&
+          !couldContainIncludedIgnored(relativePath, options.includeIgnored))
+      ) {
+        continue;
+      }
       collected.push(
-        ...(await collectExistingPaths(absolutePath, base, ignoredPaths)),
+        ...(await collectExistingPaths(absolutePath, base, options)),
       );
       continue;
     }
 
-    if (entry.isFile()) {
+    if (entry.isFile() && !excluded && (!ignored || optedIn)) {
       collected.push(relativePath);
     }
   }
@@ -260,39 +260,87 @@ async function collectExistingPaths(
   return collected;
 }
 
-async function collectAssetFiles(
-  current: string,
-  base: string,
-  ignoredPaths: Set<string>,
-): Promise<string[]> {
-  const entries = await readdir(current, { withFileTypes: true });
-  const collected: string[] = [];
+function isGitWorkTree(root: string): boolean {
+  const result = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], {
+    cwd: root,
+    encoding: "utf-8",
+  });
+  if (result.error !== undefined)
+    throw gitIgnoreError(root, result.error.message);
+  return result.status === 0 && result.stdout.trim() === "true";
+}
 
-  for (const entry of entries) {
-    if (entry.name.startsWith(".")) {
-      continue;
+function checkIgnoredPaths(root: string, relativePaths: string[]): Set<string> {
+  const ignored = new Set<string>();
+  for (const batch of batchPaths(relativePaths)) {
+    const result = spawnSync("git", ["check-ignore", "--stdin", "-z"], {
+      cwd: root,
+      input: `${batch.join("\0")}\0`,
+      encoding: "utf-8",
+      maxBuffer: GIT_IGNORE_BATCH_BYTES * 2,
+    });
+    if (result.error !== undefined)
+      throw gitIgnoreError(root, result.error.message);
+    if (![0, 1].includes(result.status ?? -1)) {
+      throw gitIgnoreError(root, result.stderr);
     }
-
-    const absolutePath = path.join(current, entry.name);
-    const relativePath = toPosixPath(path.relative(base, absolutePath));
-    if (ignoredPaths.has(relativePath)) {
-      continue;
-    }
-
-    if (entry.isDirectory()) {
-      collected.push(
-        ...(await collectAssetFiles(absolutePath, base, ignoredPaths)),
-      );
-      continue;
-    }
-
-    if (entry.isFile() && path.extname(entry.name).toLowerCase() !== ".md") {
-      collected.push(relativePath);
+    for (const value of result.stdout.split("\0")) {
+      if (value.length > 0) ignored.add(value.replace(/\/$/u, ""));
     }
   }
+  return ignored;
+}
 
-  collected.sort((left, right) =>
-    left.localeCompare(right, undefined, { sensitivity: "base" }),
+function batchPaths(relativePaths: string[]): string[][] {
+  const batches: string[][] = [];
+  let batch: string[] = [];
+  let bytes = 0;
+  for (const relativePath of relativePaths) {
+    const nextBytes = Buffer.byteLength(relativePath, "utf-8") + 1;
+    if (batch.length > 0 && bytes + nextBytes > GIT_IGNORE_BATCH_BYTES) {
+      batches.push(batch);
+      batch = [];
+      bytes = 0;
+    }
+    batch.push(relativePath);
+    bytes += nextBytes;
+  }
+  if (batch.length > 0) batches.push(batch);
+  return batches;
+}
+
+function isIncludedIgnored(relativePath: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => matchesGlobPath(relativePath, pattern));
+}
+
+function couldContainIncludedIgnored(
+  directoryPath: string,
+  patterns: string[],
+): boolean {
+  return patterns.some((pattern) => {
+    const wildcardIndex = pattern.search(/[*?]/u);
+    if (wildcardIndex === -1) {
+      return (
+        pattern === directoryPath || pattern.startsWith(`${directoryPath}/`)
+      );
+    }
+    const fixed = pattern.slice(0, wildcardIndex);
+    const lastSlash = fixed.lastIndexOf("/");
+    const fixedDirectory = (
+      fixed.endsWith("/") ? fixed.slice(0, -1) : fixed.slice(0, lastSlash)
+    ).replace(/\/$/u, "");
+    return (
+      fixedDirectory.length === 0 ||
+      fixedDirectory === directoryPath ||
+      fixedDirectory.startsWith(`${directoryPath}/`) ||
+      directoryPath.startsWith(`${fixedDirectory}/`)
+    );
+  });
+}
+
+function gitIgnoreError(root: string, detail: string): Error {
+  const suffix = detail.trim();
+  return new Error(
+    `failed to evaluate .gitignore for ${path.resolve(root)}${suffix ? `: ${suffix}` : ""}`,
   );
-  return collected;
 }

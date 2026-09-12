@@ -15,15 +15,63 @@ const snapshot: SiteSnapshot = {
     children: [
       { name: "first.md", path: "first.md", type: "file", children: [] },
       { name: "second.md", path: "second.md", type: "file", children: [] },
+      {
+        name: "guides",
+        path: "guides",
+        type: "directory",
+        children: [
+          {
+            name: "nested",
+            path: "guides/nested",
+            type: "directory",
+            children: [
+              {
+                name: "third.md",
+                path: "guides/nested/third.md",
+                type: "file",
+                children: [],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        name: "other",
+        path: "other",
+        type: "directory",
+        children: [
+          {
+            name: "fourth.md",
+            path: "other/fourth.md",
+            type: "file",
+            children: [],
+          },
+        ],
+      },
     ],
   },
   documents: [
     document("first.md", null, "second.md"),
     document("second.md", "first.md", null),
+    document("guides/nested/third.md", null, null),
+    document("other/fourth.md", null, null),
   ],
 };
 
 describe("siteReducer", () => {
+  it("opens current ancestors, collapses unrelated branches, and preserves user expansion", () => {
+    let state = createSiteState(snapshot, {
+      currentPath: "guides/nested/third.md",
+    });
+    expect(state.collapsedPaths.has("guides")).toBe(false);
+    expect(state.collapsedPaths.has("guides/nested")).toBe(false);
+    expect(state.collapsedPaths.has("other")).toBe(true);
+
+    state = siteReducer(state, { type: "toggle-directory", path: "other" });
+    state = siteReducer(state, { type: "navigate", path: "first.md" });
+    expect(state.collapsedPaths.has("other")).toBe(false);
+    expect(state.collapsedPaths.has("guides")).toBe(false);
+  });
   it("closes navigation on document selection including the current document", () => {
     const closed = createSiteState(snapshot);
     expect(closed.navigationOpen).toBe(false);

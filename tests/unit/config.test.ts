@@ -8,6 +8,7 @@ import {
   loadYomConfig,
   matchesConfigPath,
   resolveConfig,
+  type YomConfig,
 } from "../../src/core/config";
 
 const roots: string[] = [];
@@ -23,6 +24,7 @@ describe("yom config", () => {
     expect(resolveConfig({})).toMatchObject({
       title: "yom",
       lang: "und",
+      includeIgnored: [],
       basePath: "/",
       theme: "system",
       palette: "paper",
@@ -60,6 +62,12 @@ describe("yom config", () => {
       "contentWidth",
     );
     expect(() => resolveConfig({ outline: "yes" })).toThrow("outline");
+    expect(() => resolveConfig({ includeIgnored: "generated/**" })).toThrow(
+      "includeIgnored",
+    );
+    expect(() => resolveConfig({ includeIgnored: [""] })).toThrow(
+      "includeIgnored",
+    );
   });
 
   it("matches include and exclude globs", () => {
@@ -71,6 +79,20 @@ describe("yom config", () => {
     expect(matchesConfigPath("docs/guide.md", config)).toBe(true);
     expect(matchesConfigPath("docs/drafts/note.md", config)).toBe(false);
     expect(matchesConfigPath("other.md", config)).toBe(false);
+  });
+
+  it("loads includeIgnored through the public config API", async () => {
+    const root = await createRoot();
+    const publicConfig: YomConfig = {
+      includeIgnored: ["generated/**/*.md"],
+    };
+    await writeFile(
+      path.join(root, "yom.config.ts"),
+      `export default ${JSON.stringify(publicConfig)};\n`,
+    );
+    await expect(loadYomConfig({ cwd: root, root })).resolves.toMatchObject({
+      includeIgnored: ["generated/**/*.md"],
+    });
   });
 });
 

@@ -8,6 +8,7 @@ import {
   DocumentView,
   Outline,
   SettingsPanel,
+  ViewModeControl,
 } from "../../src/site/components";
 import { StaticSitePage } from "../../src/site/static";
 
@@ -44,9 +45,12 @@ describe("shared site components", () => {
       ),
     );
     expect(html).toContain('aria-current="page"');
+    expect(html).toContain('<ul class="tree">');
+    expect(html).not.toContain('role="button"');
     expect(html).toContain('aria-label="On this page"');
     expect(html).toContain('href="#guide"');
     expect(html).toContain('class="active"');
+    expect(html).toContain('aria-current="location"');
   });
 
   it("exposes directory collapse state through aria-expanded", () => {
@@ -66,12 +70,13 @@ describe("shared site components", () => {
     const html = renderToString(
       h(DocumentTree, {
         node: directory,
-        currentPath: "guide.md",
+        currentPath: null,
         collapsedPaths: new Set(["guide"]),
       }),
     );
-    expect(html).toContain('aria-expanded="false"');
-    expect(html).not.toContain("guide.md");
+    expect(html).toContain("<details>");
+    expect(html).not.toContain("<details open>");
+    expect(html).toContain('href="/docs/guide.html"');
   });
 
   it("renders both document modes and pagination", () => {
@@ -81,9 +86,55 @@ describe("shared site components", () => {
     expect(rendered).toContain('href="/docs/next.html"');
     expect(rendered).toContain('href="/?path=next.md#details"');
     expect(rendered).toContain('src="/assets/images/guide.png"');
+    expect(rendered).not.toContain('id="documentTitle"');
+    expect(rendered).not.toContain(document.path);
+    expect(rendered).not.toContain("View source");
     expect(raw).toContain('id="rawRoot"');
+    expect(raw).not.toContain('id="documentTitle"');
     expect(raw).toContain("# Guide");
     expect(raw).not.toContain('id="docRoot"');
+  });
+
+  it("renders a nested outline and marks the active heading ancestry", () => {
+    const nestedDocument = {
+      ...document,
+      outline: [
+        { id: "guide", text: "Guide", level: 1 },
+        { id: "details", text: "Details", level: 2 },
+        { id: "example", text: "Example", level: 3 },
+      ],
+    };
+    const html = renderToString(
+      h(Outline, { document: nestedDocument, activeHeading: "example" }),
+    );
+    expect(html.match(/class="outline-list"/gu)).toHaveLength(3);
+    expect(html.match(/class="outline-ancestor"/gu)).toHaveLength(2);
+    expect(html).toContain('aria-current="location"');
+  });
+
+  it("keeps the Markdown H1 when metadata title differs", () => {
+    const titledDocument = {
+      ...document,
+      metadata: { ...document.metadata, title: "Published guide" },
+    };
+    const html = renderToString(h(DocumentView, { document: titledDocument }));
+    expect(html).not.toContain('id="documentTitle"');
+    expect(html).not.toContain("Published guide");
+    expect(html).not.toContain(document.path);
+  });
+
+  it("adds a primary heading when the document has no H1", () => {
+    const headinglessDocument = {
+      ...document,
+      html: '<h2 id="details">Details</h2>',
+      outline: [{ id: "details", text: "Details", level: 2 }],
+      metadata: { ...document.metadata, title: "Published guide" },
+    };
+    const html = renderToString(
+      h(DocumentView, { document: headinglessDocument }),
+    );
+    expect(html).toContain('id="documentTitle"');
+    expect(html).toContain("Published guide");
   });
 
   it("renders front matter metadata in the document view", () => {
@@ -156,7 +207,20 @@ describe("shared site components", () => {
     );
     expect(html).toContain('aria-label="Display settings"');
     expect(html).toContain('value="dark"');
-    expect(html).toContain('value="large"');
+    expect(html).toContain("Reading presets");
+    expect(html).toContain("Paper");
+    expect(html).toContain("Dusk");
+    expect(html).toContain("Night");
     expect(html).toContain('id="outlineToggle"');
+  });
+
+  it("renders a controlled document view switch outside the document", () => {
+    const html = renderToString(
+      h(ViewModeControl, { viewMode: "rendered", onChange: () => {} }),
+    );
+    expect(html).toContain('aria-label="Document view"');
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain("Rendered");
+    expect(html).toContain("Source");
   });
 });

@@ -5,6 +5,7 @@
     "": {
       "name": "yom",
       "dependencies": {
+        "@tabler/icons-preact": "3.46.0",
         "cac": "^6.7.14",
         "markdown-it": "^14.1.0",
         "mermaid": "^11.12.0",
@@ -143,6 +144,10 @@
     "@rollup/rollup-win32-x64-gnu": ["@rollup/rollup-win32-x64-gnu@4.61.1", "", { "os": "win32", "cpu": "x64" }, "sha512-gK1iCEPfpoSG9wfBihXxvBMi8ZfcWffYkEsC/Eih+iFENTaewvNcrEQ69lIOWYO5pePHKLHHO7nq5AILGO/HQQ=="],
 
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.61.1", "", { "os": "win32", "cpu": "x64" }, "sha512-X+zaP2x+j4RXGfbp/seSoRHWnPxzApilDszisZxbYH5C/jTxFhCtDNdPGZb9lJyYPs24wGxruPF7Y+sIXt9Gzw=="],
+
+    "@tabler/icons": ["@tabler/icons@3.46.0", "", {}, "sha512-f2RYFl3fzPwj5WO82x6en0dmkjefxEfOm16D1ByM6cj/McNiwOkL4VaPUoP9VVIrXAD9WnTSVFr70px703b//A=="],
+
+    "@tabler/icons-preact": ["@tabler/icons-preact@3.46.0", "", { "dependencies": { "@tabler/icons": "3.46.0" }, "peerDependencies": { "preact": "^10.5.13" } }, "sha512-Iju43zMyymXyRlEAbAls4R57npWfkq37ikqkuFieQeKRls/e556ptvceGoR1ZPFujBNrdIUdS97CBbKxyj/iLg=="],
 
     "@types/chai": ["@types/chai@5.2.3", "", { "dependencies": { "@types/deep-eql": "*", "assertion-error": "^2.0.1" } }, "sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA=="],
 

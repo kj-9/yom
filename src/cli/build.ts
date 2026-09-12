@@ -57,11 +57,12 @@ export async function buildStaticSite(
   const config = options.config ?? resolveConfig({});
   const basePath = normalizeBasePath(options.basePath ?? config.basePath);
   const siteConfig = { ...config, basePath };
-  const existingPaths = await listExistingPaths(options.root);
+  const existingPaths = await listExistingPaths(options.root, config);
   const snapshot = buildSiteIndexFromPaths(options.root, existingPaths, config);
   const sharedSnapshot = await buildSiteSnapshot(options.root, {
     config: siteConfig,
     mode: "static",
+    existingPaths,
   });
   const referencedAssets = new Set<string>();
   const warnings = new Set<string>();

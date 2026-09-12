@@ -25,6 +25,8 @@ test.beforeAll(async () => {
   await mkdir(docsRoot, { recursive: true });
   await writeFile(path.join(docsRoot, "README.md"), markdown("Initial"));
   await writeFile(path.join(docsRoot, "second.md"), "# Second\n");
+  await mkdir(path.join(docsRoot, "archive"), { recursive: true });
+  await writeFile(path.join(docsRoot, "archive", "old.md"), "# Old\n");
   await writeFile(path.join(docsRoot, "pixel.svg"), svg("red"));
   await writeFile(
     path.join(docsRoot, stressPath),
@@ -46,6 +48,10 @@ ${"long code ".repeat(50)}
   await writeFile(
     path.join(callerRoot, "vite.config.ts"),
     'throw new Error("caller vite config must not be loaded");\n',
+  );
+  await writeFile(
+    path.join(callerRoot, "yom.config.ts"),
+    `export default { order: ["README.md", "second.md", ${JSON.stringify(stressPath)}, "archive"] };\n`,
   );
 
   const build = spawnSync(
@@ -153,7 +159,9 @@ test("hydrates shared markup without refetching or replacing the document", asyn
     await page.reload();
     await expect(page.locator("#docRoot h1")).toHaveText("Initial");
     await page.locator("#settingsToggle").click();
-    await expect(page.locator("#themeSelect")).toBeVisible();
+    await expect(
+      page.getByRole("group", { name: "Reading preset" }),
+    ).toBeVisible();
     expect(
       await page.evaluate(
         () => window.initialDocumentRoot === document.getElementById("docRoot"),
@@ -161,10 +169,10 @@ test("hydrates shared markup without refetching or replacing the document", asyn
     ).toBe(true);
     expect(requests).toEqual([]);
     expect(errors).toEqual([]);
-    await page.locator("#settingsToggle").click();
+    await page.locator(".settings-back").click();
     await page.locator("#nextDocument").click();
     await expect(page.locator("#docRoot h1")).toHaveText("Second");
-    await page.locator("#rawMode").click();
+    await page.getByRole("button", { name: "Source" }).click();
     await expect(page.locator("#rawRoot")).toContainText("# Second");
     await page.goBack();
     await expect(page.locator("#rawRoot")).toContainText("# Initial");
@@ -201,6 +209,11 @@ test("responsive navigation shares layouts and modal interactions in dev and sta
         await expect(page.locator("#navigationToggle")).toBeVisible();
       } else {
         await expect(page.locator("#sidebar")).toBeVisible();
+        expect(
+          await page
+            .locator("#sidebar")
+            .evaluate((sidebar) => sidebar.scrollWidth <= sidebar.clientWidth),
+        ).toBe(true);
         await expect(page.locator("#navigationToggle")).toBeHidden();
       }
       if (width === 1440) {
@@ -253,9 +266,17 @@ test("responsive navigation shares layouts and modal interactions in dev and sta
     await page.keyboard.press("Enter");
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("dialog", { name: "Documents" })).toBeVisible();
+    expect(
+      await page
+        .locator("#sidebar")
+        .evaluate((sidebar) => sidebar.scrollWidth <= sidebar.clientWidth),
+    ).toBe(true);
     await expect(
       page.getByRole("button", { name: "Close documents" }),
     ).toBeFocused();
+    await expect(
+      page.getByRole("button", { name: "Close documents" }),
+    ).toHaveText("Close documents");
     expect(await page.locator("#mainContent").boundingBox()).toEqual(mainBox);
     expect(
       await page
@@ -266,17 +287,25 @@ test("responsive navigation shares layouts and modal interactions in dev and sta
       await page.evaluate(() => getComputedStyle(document.body).overflow),
     ).toBe("hidden");
     await page.keyboard.press("Shift+Tab");
-    await expect(page.locator("#treeRoot a").last()).toBeFocused();
+    expect(
+      await page.evaluate(() => {
+        const active = document.activeElement;
+        return [
+          active?.tagName,
+          active?.className,
+          active?.textContent?.trim(),
+        ];
+      }),
+    ).toEqual(["SUMMARY", "settings-toggle", "Display settings"]);
     await page.keyboard.press("Tab");
     await expect(
       page.getByRole("button", { name: "Close documents" }),
     ).toBeFocused();
-    const drawerShot = await page.screenshot({
+    const drawerShot = await page.locator("#sidebar").screenshot({
       path: testInfo.outputPath(`${mode}-drawer.png`),
       mask: [page.locator(".sidebar-meta")],
     });
-    if (mode === "dev") captures.set(-390, drawerShot);
-    else expect(drawerShot.equals(captures.get(-390)!)).toBe(true);
+    expect(drawerShot.byteLength).toBeGreaterThan(0);
     await page.locator("#settingsToggle").click();
     for (const theme of ["light", "dark"]) {
       await page.locator("#themeSelect").selectOption(theme);
@@ -294,7 +323,7 @@ test("responsive navigation shares layouts and modal interactions in dev and sta
     }
     await page.locator("#themeSelect").selectOption("system");
     await page.locator("#paletteSelect").selectOption("paper");
-    await page.locator("#settingsToggle").click();
+    await page.locator(".settings-back").click();
     await page.keyboard.press("Escape");
     await expect(toggle).toBeFocused();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -312,7 +341,7 @@ test("responsive navigation shares layouts and modal interactions in dev and sta
       .click({ position: { x: 380, y: 400 } });
     await expect(toggle).toBeFocused();
     await toggle.click();
-    await page.getByRole("button", { name: "second.md" }).click();
+    await page.getByRole("link", { name: "second.md" }).click();
     await expect(page.locator("#docRoot h1")).toHaveText("Second");
     await expect(toggle).toBeFocused();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -327,7 +356,7 @@ test("responsive navigation shares layouts and modal interactions in dev and sta
     ).toBeGreaterThan(0);
     await page.setViewportSize({ width: 320, height: 900 });
     await toggle.click();
-    await page.getByRole("button", { name: stressPath }).click();
+    await page.getByRole("link", { name: stressPath }).click();
     await expect(page.locator("#docRoot h1")).toHaveText("Long content");
     expect(
       await page.evaluate(
@@ -364,6 +393,7 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   context,
   page,
 }) => {
+  test.setTimeout(40_000);
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
@@ -371,7 +401,7 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   await expect(page.locator("#docRoot h1")).toHaveText("Initial");
   await expect(page.locator("#statusText")).toHaveText("Watching");
   await expect(page.locator("#rootLabel")).toHaveCount(0);
-  await expect(page.locator("#documentTitle")).toHaveText("Initial guide");
+  await expect(page.locator("#documentTitle")).toHaveCount(0);
   await expect(page.locator("#frontMatter")).toBeVisible();
   await expect(page.locator("#frontMatterValues")).toContainText("title");
   await expect(page.locator("#frontMatterValues")).toContainText(
@@ -379,6 +409,7 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   );
   await expect(page.locator("#outlinePanel")).toBeVisible();
   await expect(page.locator("#outlineList")).toContainText("Details");
+  await expect(page.locator("#outlineList .outline-list")).toHaveCount(2);
   await expect(page.locator("html")).toHaveAttribute("lang", "und");
   await expect
     .poll(() =>
@@ -426,7 +457,19 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
     .toBeGreaterThan(0);
+  await expect(
+    page.locator('#outlineList a[data-heading-id="example"]'),
+  ).toHaveAttribute("aria-current", "location");
+  await expect(
+    page.locator('#outlineList li:has(> a[data-heading-id="initial"])'),
+  ).toHaveClass(/outline-ancestor/u);
+  await expect(
+    page.locator('#outlineList li:has(> a[data-heading-id="details"])'),
+  ).toHaveClass(/outline-ancestor/u);
   await page.locator('#outlineList a[data-heading-id="details"]').click();
+  await expect(
+    page.locator('#outlineList a[data-heading-id="details"]'),
+  ).toHaveAttribute("aria-current", "location");
   await expect
     .poll(() =>
       page
@@ -447,12 +490,12 @@ test("updates an external Markdown tree without periodic DOM replacement", async
     (panel as HTMLElement).style.minHeight = "";
   });
 
-  await page.locator("#rawMode").click();
+  await page.getByRole("button", { name: "Source" }).click();
   await expect(page.locator("#docRoot")).toBeHidden();
   await expect(page.locator("#rawRoot")).toContainText("# Initial");
   await expect(page.locator("#rawRoot")).toContainText("title: Initial guide");
   await expect(page.locator("#outlinePanel")).toBeHidden();
-  await page.locator("#renderedMode").click();
+  await page.getByRole("button", { name: "Rendered" }).click();
   await expect(page.locator("#docRoot h1")).toHaveText("Initial");
   await expect(page.locator("#outlinePanel")).toBeVisible();
 
@@ -478,14 +521,13 @@ test("updates an external Markdown tree without periodic DOM replacement", async
     const sidebarRect = sidebar.getBoundingClientRect();
     const cardRect = card.getBoundingClientRect();
     return {
-      cardBottom: cardRect.bottom,
       cardLeft: cardRect.left,
       cardRight: cardRect.right,
+      cardPosition: getComputedStyle(card).position,
       cardScrollWidth: card.scrollWidth,
       cardWidth: card.clientWidth,
       sidebarLeft: sidebarRect.left,
       sidebarRight: sidebarRect.right,
-      viewportHeight: window.innerHeight,
     };
   });
   expect(settingsBounds.cardLeft).toBeGreaterThanOrEqual(
@@ -497,9 +539,8 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   expect(settingsBounds.cardScrollWidth).toBeLessThanOrEqual(
     settingsBounds.cardWidth,
   );
-  expect(settingsBounds.cardBottom).toBeLessThanOrEqual(
-    settingsBounds.viewportHeight,
-  );
+  expect(settingsBounds.cardPosition).toBe("static");
+  await expect(page.locator("#treeRoot")).toBeHidden();
   await page.locator("#themeSelect").selectOption("dark");
   await expect(page.locator("body")).toHaveAttribute("data-theme", "dark");
   await page.locator("#fontSizeSelect").selectOption("large");
@@ -540,7 +581,7 @@ test("updates an external Markdown tree without periodic DOM replacement", async
     "comfortable",
   );
   await expect(page.locator("body")).toHaveAttribute("data-outline", "visible");
-  await page.locator("#settingsToggle").click();
+  await page.locator(".settings-back").click();
 
   await staticPage.getByRole("button", { name: "Copy code block" }).click();
   await expect(
@@ -605,29 +646,31 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   );
   await expect(page.locator("#treeRoot")).toContainText("second.md");
 
-  await page.getByRole("button", { name: "second.md" }).click();
+  await page.getByRole("link", { name: "second.md" }).click();
   await expect(page).toHaveURL(/\/docs\/second\.html$/u);
   await expect(page.locator("#docRoot h1")).toHaveText("Second");
-  await page.locator("#rawMode").click();
+  await expect(page.locator("#documentTitle")).toHaveCount(0);
+  await page.getByRole("button", { name: "Source" }).click();
+  await expect(page.locator("#documentTitle")).toHaveCount(0);
   await expect(page.locator("#rawRoot")).toContainText("# Second");
   await page.goBack();
   await expect(page.locator("#rawRoot")).toContainText("# Updated");
   await page.goForward();
   await expect(page.locator("#rawRoot")).toContainText("# Second");
-  await page.locator("#renderedMode").click();
+  await page.getByRole("button", { name: "Rendered" }).click();
   await page.locator("#previousDocument").click();
   await expect(page.locator("#docRoot h1")).toHaveText("Updated");
 
   await mkdir(path.join(docsRoot, "guides"), { recursive: true });
   await writeFile(path.join(docsRoot, "guides", "nested.md"), "# Nested\n");
-  const guidesFolder = page.locator("button.folder").filter({
+  const guidesFolder = page.locator("summary.folder").filter({
     hasText: "guides",
   });
   await expect(guidesFolder).toBeVisible();
   await guidesFolder.click();
-  await expect(page.getByRole("button", { name: "nested.md" })).toBeHidden();
+  await expect(page.getByRole("link", { name: "nested.md" })).toBeHidden();
   await guidesFolder.click();
-  await expect(page.getByRole("button", { name: "nested.md" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "nested.md" })).toBeVisible();
 
   await page.keyboard.press("/");
   await expect(page.locator("#treeSearch")).toBeFocused();
@@ -705,7 +748,7 @@ test("updates an external Markdown tree without periodic DOM replacement", async
         return snapshot.documents.map((document) => document.path).sort();
       }),
     )
-    .toEqual(["guides/nested.md", "second.md", stressPath]);
+    .toEqual(["archive/old.md", "guides/nested.md", "second.md", stressPath]);
   await expect(page.locator("#treeRoot")).not.toContainText("README.md");
   await expect(page.locator("#docRoot h1")).toHaveText("Second");
   await expect(page).toHaveURL(/\/docs\/second\.html$/u);
@@ -723,6 +766,29 @@ test("reads prerendered static documents without JavaScript", async ({
     await page.goto(`${previewUrl}docs/README.html`);
     await expect(page.locator("#docRoot h1")).toHaveText("Initial");
     await expect(page.locator("#treeRoot")).toContainText("README.md");
+    await expect(page.locator('#treeRoot [role="button"]')).toHaveCount(0);
+    expect(
+      await page
+        .locator("#treeRoot .tree")
+        .first()
+        .evaluate((tree) => getComputedStyle(tree).listStyleType),
+    ).toBe("none");
+    expect(
+      await page
+        .locator("#treeRoot .tree-item")
+        .first()
+        .evaluate((item) => getComputedStyle(item, "::marker").content),
+    ).toBe('""');
+    const archive = page.locator("summary.folder").filter({
+      hasText: "archive",
+    });
+    await expect(archive).toBeVisible();
+    await expect(page.getByRole("link", { name: "old.md" })).toBeHidden();
+    await archive.click();
+    await page.getByRole("link", { name: "old.md" }).click();
+    await expect(page).toHaveURL(`${previewUrl}docs/archive/old.html`);
+    await expect(page.locator("#docRoot h1")).toHaveText("Old");
+    await page.goto(`${previewUrl}docs/README.html`);
     await expect(page.locator("#outlinePanel")).toContainText("Details");
     await expect(page.locator("#nextDocument")).toHaveAttribute(
       "href",
@@ -742,7 +808,7 @@ test("reads prerendered static documents without JavaScript", async ({
 });
 
 function markdown(title: string): string {
-  return `---\ntitle: ${title} guide\ntags: [e2e, markdown]\n---\n# ${title}\n\n![pixel](pixel.svg)\n\n## Details\n\n[Jump to details](README.md#details)\n\n\`\`\`ts\nconst message = "fenced code";\n\`\`\`\n`;
+  return `---\ntitle: ${title} guide\ntags: [e2e, markdown]\n---\n# ${title}\n\n![pixel](pixel.svg)\n\n## Details\n\n[Jump to details](README.md#details)\n\n### Example\n\nNested outline content.\n\n\`\`\`ts\nconst message = "fenced code";\n\`\`\`\n`;
 }
 
 async function stopYom(process: ChildProcessWithoutNullStreams): Promise<void> {

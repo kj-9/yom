@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -118,6 +119,43 @@ describe("buildStaticSite", () => {
     );
     warn.mockRestore();
   }, 15_000);
+
+  it("builds opted-in ignored documents and only their opted-in referenced assets", async () => {
+    const root = createTempRoot();
+    const outDir = path.join(root, ".out");
+    initGit(root);
+    await write(root, ".gitignore", "generated/\n");
+    await write(
+      root,
+      "generated/guide.md",
+      "# Generated\n\n![kept](kept.png)\n\n![missing](dropped.png)",
+    );
+    await write(root, "generated/kept.png", "kept");
+    await write(root, "generated/dropped.png", "dropped");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await buildStaticSite({
+      root,
+      outDir,
+      config: resolveConfig({
+        includeIgnored: ["generated/guide.md", "generated/kept.png"],
+      }),
+    });
+
+    await expect(
+      readFile(path.join(outDir, "data/generated/guide.md.json"), "utf-8"),
+    ).resolves.toContain("Generated");
+    await expect(
+      readFile(path.join(outDir, "assets/generated/kept.png"), "utf-8"),
+    ).resolves.toBe("kept");
+    await expect(
+      readFile(path.join(outDir, "assets/generated/dropped.png"), "utf-8"),
+    ).rejects.toThrow();
+    expect(result.warnings).toEqual([
+      "generated/guide.md: unresolved reference dropped.png",
+    ]);
+    warn.mockRestore();
+  }, 15_000);
 });
 
 function createTempRoot(): string {
@@ -134,4 +172,9 @@ async function write(
   const absolutePath = path.join(root, relativePath);
   await mkdir(path.dirname(absolutePath), { recursive: true });
   await writeFile(absolutePath, content, "utf-8");
+}
+
+function initGit(root: string): void {
+  const result = spawnSync("git", ["init", "--quiet"], { cwd: root });
+  if (result.status !== 0) throw new Error("git init failed");
 }

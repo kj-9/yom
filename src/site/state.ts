@@ -58,12 +58,13 @@ export function createSiteState(
     preferences?: Partial<ReadingPreferences>;
   } = {},
 ): SiteState {
+  const currentPath = selectedPath(snapshot, options.currentPath);
   return {
     snapshot,
-    currentPath: selectedPath(snapshot, options.currentPath),
+    currentPath,
     viewMode: "rendered",
     navigationOpen: false,
-    collapsedPaths: new Set(),
+    collapsedPaths: initiallyCollapsedPaths(snapshot, currentPath),
     preferences: { ...defaultReadingPreferences, ...options.preferences },
   };
 }
@@ -93,6 +94,7 @@ export function siteReducer(state: SiteState, action: SiteAction): SiteState {
         ...state,
         snapshot: action.snapshot,
         currentPath,
+        collapsedPaths: expandPathAncestors(state.collapsedPaths, currentPath),
       };
     }
     case "set-navigation-open":
@@ -106,7 +108,12 @@ export function siteReducer(state: SiteState, action: SiteAction): SiteState {
       ) {
         return state;
       }
-      return { ...state, currentPath: action.path, navigationOpen: false };
+      return {
+        ...state,
+        currentPath: action.path,
+        navigationOpen: false,
+        collapsedPaths: expandPathAncestors(state.collapsedPaths, action.path),
+      };
     case "set-view-mode":
       return action.viewMode === state.viewMode
         ? state
@@ -127,6 +134,40 @@ export function siteReducer(state: SiteState, action: SiteAction): SiteState {
         : { ...state, preferences };
     }
   }
+}
+
+export function initiallyCollapsedPaths(
+  snapshot: SiteSnapshot,
+  currentPath: string | null,
+): ReadonlySet<string> {
+  return expandPathAncestors(collectDirectoryPaths(snapshot.tree), currentPath);
+}
+
+function collectDirectoryPaths(
+  node: SiteSnapshot["tree"],
+): ReadonlySet<string> {
+  const paths = new Set<string>();
+  const visit = (candidate: SiteSnapshot["tree"]): void => {
+    if (candidate.type === "file") return;
+    if (candidate.path.length > 0) paths.add(candidate.path);
+    for (const child of candidate.children) visit(child);
+  };
+  visit(node);
+  return paths;
+}
+
+function expandPathAncestors(
+  collapsedPaths: ReadonlySet<string>,
+  currentPath: string | null,
+): ReadonlySet<string> {
+  if (currentPath === null) return collapsedPaths;
+  const expanded = new Set(collapsedPaths);
+  let changed = false;
+  const parts = currentPath.split("/");
+  for (let index = 1; index < parts.length; index += 1) {
+    changed = expanded.delete(parts.slice(0, index).join("/")) || changed;
+  }
+  return changed ? expanded : collapsedPaths;
 }
 
 export function siteSnapshotsEqual(

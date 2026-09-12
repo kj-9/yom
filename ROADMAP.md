@@ -293,11 +293,32 @@ Phase 7は共有Preact componentを前提に開始できます。
 - 390px、1,024px、1,440pxの主要状態をE2Eテストとスクリーンショットで検証する
 - devとstatic buildで同じレスポンシブ表示と操作を再現できる
 
+## Phase 7.5: Phase 8前のUIと文書検出を整える
+
+**Status:** Completed on 2026-09-06
+
+Phase 7の実利用監査で見つかった、大量のGit無視pathが文書treeへ流入する
+問題と、tree・文書header・見出しoutlineの情報階層を改善しました。
+
+### 実装範囲
+
+- `.gitignore`を既定で尊重し、ディレクトリ単位のbatch照会と早期pruneで走査する
+- `includeIgnored`により、無視された文書とassetだけをroot相対globで限定opt-inできる
+- 文書treeをnative `details` / `summary`と通常linkで構成し、現在文書の祖先だけを初期展開する。list markerを除き、展開三角形と狭いindentでfolderを示す
+- 本文面からpathと表示操作を除き、Markdown H1または不足時に補完するtitleから直接読み始められるようにする
+- 選択中の文書rowへSource/Rendered操作を置き、表示形式の操作をnavigation側へまとめる
+- 見出しlevelを反映した入れ子outlineと、現在section・祖先の状態を表示する
+- Display settingsを左ペイン内の専用画面とし、**Documents**でtreeへ戻る
+
+Phase 8の検索結果view、最近開いた文書、スクロール位置復元、クイックオープン、
+パンくず、ピン留め、フォーカスモード、モバイル見出しUIは本Phaseに含めず、
+従来どおりPhase 8の範囲とします。
+
 ## Phase 8: 文書の発見と作業再開を速くする
 
 **Status:** Planned
 
-**Depends on:** Phase 7
+**Depends on:** Phase 7.5
 
 ### 目的
 
