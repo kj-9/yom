@@ -155,8 +155,8 @@ opt-inは避けてください。
 - MarkdownのH1を文書見出しとして維持し、H1がない文書だけtitleを先頭見出しとして
   補完する。文書pathと表示操作は本文の外に置く
 - 右側の見出し一覧は階層を表現し、スクロール中の現在sectionとその祖先を示す
-- 表示設定では見た目を確認できるPaper・Dusk・Nightの読書preset、OS連動、
-  segmented controlによる文字サイズと本文幅、見出し一覧の表示を変更可能
+- 表示設定ではLight・Dark・Autoの外観とSlate・Ocean・Forest・Sand・Roseの
+  色を別々に選択できる。文字サイズは本文と見出しを一緒に拡大・縮小し、見出し階層は維持される
 - 表示設定は左ペイン内で文書treeと切り替えて一列表示し、**Documents**または
   Escapeでtreeへ戻る。モバイル文書ドロワーは区別できる**Close documents**で閉じる
 - システムテーマはOSの外観変更に追従する

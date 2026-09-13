@@ -27,7 +27,7 @@ rendered表示の本文は同じ意味のタイトルを連続して二重表示
 
 ### Requirement: 本文面を文書内容に限定する
 
-本文面はMarkdownからrenderした内容、H1がない場合に補完する主見出し、front matter、paginationだけを含み、文書pathと表示mode操作を含んではならない（MUST NOT）。
+本文面はMarkdownからrenderした内容、H1がない場合に補完する主見出し、front matterだけを含み、文書path、表示mode操作、前後文書へのpaginationを含んではならない（MUST NOT）。
 
 #### Scenario: 文書を開く
 
@@ -38,7 +38,7 @@ rendered表示の本文は同じ意味のタイトルを連続して二重表示
 
 Display settingsは文書treeへ重なるfloating surfaceではなく、左ペイン内の専用画面として通常flowに配置しなければならない（MUST）。設定中は文書searchとtreeを隠し、Documentsへ戻る操作を提供しなければならない（MUST）。
 
-Theme、palette、文字サイズ、本文幅は、変更結果を選択前に理解できるpreviewまたはsegmented controlとして表示しなければならない（MUST）。既存の保存値は新しい操作体系でも読み書きできなければならない（MUST）。
+Themeとpaletteは互いに独立した選択肢として表示し、文字サイズと本文幅は変更結果を理解できるsegmented controlとして表示しなければならない（MUST）。文字サイズは本文と見出しを一緒に拡大・縮小し、見出し間の階層を維持しなければならない（MUST）。既存の保存値は新しい操作体系でも読み書きできなければならない（MUST）。
 
 #### Scenario: モバイルで表示設定を開く
 
@@ -48,7 +48,7 @@ Theme、palette、文字サイズ、本文幅は、変更結果を選択前に�
 #### Scenario: 読書表示を選ぶ
 
 - **WHEN** 利用者がDisplay settingsを開く
-- **THEN** themeとpaletteは見た目を示す読書presetとして、文字サイズと本文幅は選択状態が明確なsegmented controlとして表示される
+- **THEN** Light・Dark・Autoのthemeと色paletteが独立した選択肢として、文字サイズと本文幅は選択状態が明確なsegmented controlとして表示される
 
 ### Requirement: 既存のレスポンシブ契約を維持する
 

@@ -159,8 +159,9 @@ test("hydrates shared markup without refetching or replacing the document", asyn
     await page.reload();
     await expect(page.locator("#docRoot h1")).toHaveText("Initial");
     await page.locator("#settingsToggle").click();
+    await expect(page.getByRole("group", { name: "Theme" })).toBeVisible();
     await expect(
-      page.getByRole("group", { name: "Reading preset" }),
+      page.getByRole("group", { name: "Color palette" }),
     ).toBeVisible();
     expect(
       await page.evaluate(
@@ -170,7 +171,7 @@ test("hydrates shared markup without refetching or replacing the document", asyn
     expect(requests).toEqual([]);
     expect(errors).toEqual([]);
     await page.locator(".settings-back").click();
-    await page.locator("#nextDocument").click();
+    await page.getByRole("link", { name: "second.md" }).click();
     await expect(page.locator("#docRoot h1")).toHaveText("Second");
     await page.getByRole("button", { name: "Source" }).click();
     await expect(page.locator("#rawRoot")).toContainText("# Second");
@@ -310,7 +311,7 @@ test("responsive navigation shares layouts and modal interactions in dev and sta
     for (const theme of ["light", "dark"]) {
       await page.locator("#themeSelect").selectOption(theme);
       await expect(page.locator("body")).toHaveAttribute("data-theme", theme);
-      for (const palette of ["paper", "forest", "sea"]) {
+      for (const palette of ["paper", "forest", "sea", "sand", "rose"]) {
         await page.locator("#paletteSelect").selectOption(palette);
         await expect(page.locator("body")).toHaveAttribute(
           "data-palette",
@@ -659,7 +660,7 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   await page.goForward();
   await expect(page.locator("#rawRoot")).toContainText("# Second");
   await page.getByRole("button", { name: "Rendered" }).click();
-  await page.locator("#previousDocument").click();
+  await page.getByRole("link", { name: "README.md" }).click();
   await expect(page.locator("#docRoot h1")).toHaveText("Updated");
 
   await mkdir(path.join(docsRoot, "guides"), { recursive: true });
@@ -682,10 +683,7 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   await expect(page.locator("#treeRoot")).toContainText("README.md");
 
   await page.locator("#treeSearch").blur();
-  await expect(page.locator("#nextDocument")).toHaveAttribute(
-    "data-path",
-    "second.md",
-  );
+  await expect(page.locator(".document-pagination")).toHaveCount(0);
   await page.evaluate(() => {
     document.body.dispatchEvent(
       new KeyboardEvent("keydown", { bubbles: true, key: "]" }),
@@ -721,10 +719,7 @@ test("updates an external Markdown tree without periodic DOM replacement", async
   ).toBe(true);
   expect(pageErrors).toEqual([]);
 
-  await expect(page.locator("#nextDocument")).toHaveAttribute(
-    "data-path",
-    "second.md",
-  );
+  await expect(page.locator(".document-pagination")).toHaveCount(0);
   const deletionRefresh = page.waitForResponse(async (response) => {
     if (response.url() !== `${baseUrl}/api/site` || !response.ok()) {
       return false;
@@ -791,18 +786,11 @@ test("reads prerendered static documents without JavaScript", async ({
     await expect(page.locator("#docRoot h1")).toHaveText("Old");
     await page.goto(`${previewUrl}docs/README.html`);
     await expect(page.locator("#outlinePanel")).toContainText("Details");
-    await expect(page.locator("#nextDocument")).toHaveAttribute(
-      "href",
-      "/site/docs/second.html",
-    );
-
-    await page.locator("#nextDocument").click();
+    await expect(page.locator(".document-pagination")).toHaveCount(0);
+    await page.getByRole("link", { name: "second.md" }).click();
     await expect(page).toHaveURL(`${previewUrl}docs/second.html`);
     await expect(page.locator("#docRoot h1")).toHaveText("Second");
-    await expect(page.locator("#previousDocument")).toHaveAttribute(
-      "href",
-      "/site/docs/README.html",
-    );
+    await expect(page.locator(".document-pagination")).toHaveCount(0);
   } finally {
     await context.close();
   }

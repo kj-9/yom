@@ -4,7 +4,7 @@ export type ViewMode = "rendered" | "raw";
 
 export type ReadingPreferences = {
   theme: "system" | "light" | "dark";
-  palette: "paper" | "forest" | "sea";
+  palette: "paper" | "forest" | "sea" | "sand" | "rose";
   fontSize: "small" | "medium" | "large";
   contentWidth: "compact" | "comfortable" | "wide";
   outline: boolean;

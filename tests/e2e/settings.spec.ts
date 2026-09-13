@@ -97,8 +97,30 @@ test("display settings stay in bounds and preserve site defaults", async ({
       "data-font-size",
       "large",
     );
+    const largeHeadingSize = await page
+      .locator("#docRoot h1")
+      .evaluate((heading) =>
+        Number.parseFloat(getComputedStyle(heading).fontSize),
+      );
     const trigger = page.locator("#settingsToggle");
     const card = page.locator(".settings-card");
+    const textSize = page.locator(".segmented-setting").filter({
+      has: page.getByText("Text size", { exact: true }),
+    });
+    await trigger.click();
+    await textSize.getByRole("button", { name: "S", exact: true }).click();
+    await expect(page.locator("body")).toHaveAttribute(
+      "data-font-size",
+      "small",
+    );
+    const smallHeadingSize = await page
+      .locator("#docRoot h1")
+      .evaluate((heading) =>
+        Number.parseFloat(getComputedStyle(heading).fontSize),
+      );
+    expect(smallHeadingSize).toBeLessThan(largeHeadingSize);
+    await textSize.getByRole("button", { name: "L", exact: true }).click();
+    await page.locator(".settings-back").click();
     for (const [width, height] of [
       [320, 568],
       [390, 320],
@@ -161,7 +183,7 @@ test("display settings stay in bounds and preserve site defaults", async ({
       }
       for (const theme of ["light", "dark"]) {
         await page.locator("#themeSelect").selectOption(theme);
-        for (const palette of ["paper", "forest", "sea"]) {
+        for (const palette of ["paper", "forest", "sea", "sand", "rose"]) {
           await page.locator("#paletteSelect").selectOption(palette);
           await expect(page.locator("body")).toHaveAttribute(
             "data-palette",

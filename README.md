@@ -161,9 +161,9 @@ when the site is hosted below a subpath such as GitHub Pages.
   is added as the first heading; file paths and controls stay outside the document
 - The page outline reflects heading nesting and marks the current section and its
   ancestors while a long document scrolls
-- Display settings offer previewable Paper, Dusk, and Night reading presets,
-  optional system appearance, segmented text-size and page-width controls, and
-  outline visibility; browser choices are saved locally
+- Display settings separate Light, Dark, and Auto appearance from Slate, Ocean,
+  Forest, Sand, and Rose color palettes. Text size scales body copy and headings
+  together while retaining their hierarchy; browser choices are saved locally
 - Display settings replace the document tree within the left pane and use a
   single-column layout. Use **Documents** or `Escape` to return to the tree; the
   mobile drawer retains the distinct **Close documents** action

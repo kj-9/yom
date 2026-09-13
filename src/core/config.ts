@@ -14,7 +14,7 @@ export type YomConfig = {
   order?: string[];
   base?: string;
   theme?: "system" | "light" | "dark";
-  palette?: "paper" | "forest" | "sea";
+  palette?: "paper" | "forest" | "sea" | "sand" | "rose";
   fontSize?: "small" | "medium" | "large";
   contentWidth?: "compact" | "comfortable" | "wide";
   outline?: boolean;
@@ -32,7 +32,7 @@ export type ResolvedYomConfig = {
   order: string[];
   basePath: string;
   theme: "system" | "light" | "dark";
-  palette: "paper" | "forest" | "sea";
+  palette: "paper" | "forest" | "sea" | "sand" | "rose";
   fontSize: "small" | "medium" | "large";
   contentWidth: "compact" | "comfortable" | "wide";
   outline: boolean;
@@ -128,7 +128,7 @@ export function resolveConfig(
     palette: enumValue(
       value.palette,
       "palette",
-      ["paper", "forest", "sea"],
+      ["paper", "forest", "sea", "sand", "rose"],
       "paper",
     ),
     fontSize: enumValue(

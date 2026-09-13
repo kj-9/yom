@@ -4,13 +4,12 @@ import {
   IconArrowLeft,
   IconBook2,
   IconCode,
+  IconDeviceDesktop,
+  IconMoon,
+  IconSun,
 } from "@tabler/icons-preact";
 import type { ComponentChildren } from "preact";
-import type {
-  DocumentPayload,
-  DocumentReference,
-  TreeNode,
-} from "../core/sitepayload.js";
+import type { DocumentPayload, TreeNode } from "../core/sitepayload.js";
 import { defaultReadingPreferences, type ReadingPreferences } from "./state.js";
 import {
   buildOutlineTree,
@@ -162,10 +161,6 @@ export function DocumentView(props: {
           />
         </div>
       )}
-      <Pagination
-        previous={document.pagination.previous}
-        next={document.pagination.next}
-      />
     </div>
   );
 }
@@ -236,34 +231,6 @@ function OutlineList(props: {
   );
 }
 
-export function Pagination(props: {
-  previous: DocumentReference | null;
-  next: DocumentReference | null;
-}): ComponentChildren {
-  return (
-    <nav aria-label="Pagination" class="document-pagination">
-      {props.previous ? (
-        <a
-          id="previousDocument"
-          data-path={props.previous.path}
-          href={props.previous.route}
-        >
-          Previous
-        </a>
-      ) : null}
-      {props.next ? (
-        <a
-          id="nextDocument"
-          data-path={props.next.path}
-          href={props.next.route}
-        >
-          Next
-        </a>
-      ) : null}
-    </nav>
-  );
-}
-
 export function SettingsPanel(props: {
   preferences: ReadingPreferences;
   onChange: (patch: Partial<ReadingPreferences>) => void;
@@ -306,44 +273,65 @@ export function SettingsPanel(props: {
           </button>
           <h2>Display</h2>
         </div>
-        <div class="reading-presets">
-          <div class="settings-section-heading">
-            <span>Reading presets</span>
-            <button
-              class={`auto-theme${preferences.theme === "system" ? " active" : ""}`}
-              type="button"
-              aria-pressed={preferences.theme === "system"}
-              onClick={() => onChange({ theme: "system" })}
-            >
-              Auto <small>(system)</small>
-            </button>
-          </div>
-          <div class="preset-grid" role="group" aria-label="Reading preset">
-            <PresetButton
-              name="Paper"
-              tone="paper"
-              active={
-                preferences.theme === "light" && preferences.palette === "paper"
-              }
-              onClick={() => onChange({ theme: "light", palette: "paper" })}
-            />
-            <PresetButton
-              name="Dusk"
-              tone="dusk"
-              active={
-                preferences.theme === "dark" && preferences.palette === "sea"
-              }
-              onClick={() => onChange({ theme: "dark", palette: "sea" })}
-            />
-            <PresetButton
-              name="Night"
-              tone="night"
-              active={
-                preferences.theme === "dark" && preferences.palette === "paper"
-              }
-              onClick={() => onChange({ theme: "dark", palette: "paper" })}
-            />
-          </div>
+        <div class="appearance-settings">
+          <fieldset class="appearance-group">
+            <legend>Theme</legend>
+            <div class="appearance-grid">
+              <AppearanceButton
+                label="Auto"
+                active={preferences.theme === "system"}
+                icon={<IconDeviceDesktop aria-hidden="true" size={17} />}
+                onClick={() => onChange({ theme: "system" })}
+              />
+              <AppearanceButton
+                label="Light"
+                active={preferences.theme === "light"}
+                icon={<IconSun aria-hidden="true" size={17} />}
+                onClick={() => onChange({ theme: "light" })}
+              />
+              <AppearanceButton
+                label="Dark"
+                active={preferences.theme === "dark"}
+                icon={<IconMoon aria-hidden="true" size={17} />}
+                onClick={() => onChange({ theme: "dark" })}
+              />
+            </div>
+          </fieldset>
+          <fieldset class="appearance-group">
+            <legend>Color palette</legend>
+            <div class="palette-grid">
+              <PaletteButton
+                label="Slate"
+                value="paper"
+                preferences={preferences}
+                onChange={onChange}
+              />
+              <PaletteButton
+                label="Ocean"
+                value="sea"
+                preferences={preferences}
+                onChange={onChange}
+              />
+              <PaletteButton
+                label="Forest"
+                value="forest"
+                preferences={preferences}
+                onChange={onChange}
+              />
+              <PaletteButton
+                label="Sand"
+                value="sand"
+                preferences={preferences}
+                onChange={onChange}
+              />
+              <PaletteButton
+                label="Rose"
+                value="rose"
+                preferences={preferences}
+                onChange={onChange}
+              />
+            </div>
+          </fieldset>
           <div class="legacy-settings" aria-hidden="true">
             <select
               id="themeSelect"
@@ -371,9 +359,11 @@ export function SettingsPanel(props: {
                 })
               }
             >
-              <option value="paper">Paper</option>
+              <option value="paper">Slate</option>
+              <option value="sea">Ocean</option>
               <option value="forest">Forest</option>
-              <option value="sea">Sea</option>
+              <option value="sand">Sand</option>
+              <option value="rose">Rose</option>
             </select>
           </div>
         </div>
@@ -381,6 +371,7 @@ export function SettingsPanel(props: {
           <SegmentedSetting
             id="fontSizeSelect"
             label="Text size"
+            description="Adjusts body text and headings together."
             value={preferences.fontSize}
             options={[
               ["small", "S"],
@@ -437,26 +428,41 @@ export function SettingsPanel(props: {
   );
 }
 
-function PresetButton(props: {
-  name: string;
-  tone: "paper" | "dusk" | "night";
+function AppearanceButton(props: {
+  label: string;
+  icon: ComponentChildren;
   active: boolean;
   onClick: () => void;
 }): ComponentChildren {
   return (
     <button
-      class={`preset${props.active ? " active" : ""}`}
+      class={`appearance-option${props.active ? " active" : ""}`}
       type="button"
       aria-pressed={props.active}
       onClick={props.onClick}
     >
-      <span class={`preset-preview ${props.tone}`} aria-hidden="true">
-        <strong>Aa</strong>
-        <i />
-        <i />
-        <i />
-      </span>
-      <span>{props.name}</span>
+      {props.icon}
+      <span>{props.label}</span>
+    </button>
+  );
+}
+
+function PaletteButton(props: {
+  label: string;
+  value: ReadingPreferences["palette"];
+  preferences: ReadingPreferences;
+  onChange: (patch: Partial<ReadingPreferences>) => void;
+}): ComponentChildren {
+  const active = props.preferences.palette === props.value;
+  return (
+    <button
+      class={`palette-option${active ? " active" : ""}`}
+      type="button"
+      aria-pressed={active}
+      onClick={() => props.onChange({ palette: props.value })}
+    >
+      <span class={`palette-swatch ${props.value}`} aria-hidden="true" />
+      <span>{props.label}</span>
     </button>
   );
 }
@@ -464,6 +470,7 @@ function PresetButton(props: {
 function SegmentedSetting(props: {
   id: string;
   label: string;
+  description?: string;
   value: string;
   options: readonly (readonly [string, string])[];
   onChange: (value: string) => void;
@@ -484,6 +491,7 @@ function SegmentedSetting(props: {
           </button>
         ))}
       </div>
+      {props.description ? <small>{props.description}</small> : null}
       <select
         id={props.id}
         class="legacy-settings"

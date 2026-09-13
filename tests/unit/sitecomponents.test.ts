@@ -79,11 +79,10 @@ describe("shared site components", () => {
     expect(html).toContain('href="/docs/guide.html"');
   });
 
-  it("renders both document modes and pagination", () => {
+  it("renders both document modes without reading-surface controls", () => {
     const rendered = renderToString(h(DocumentView, { document }));
     const raw = renderToString(h(DocumentView, { document, viewMode: "raw" }));
     expect(rendered).toContain('id="docRoot"');
-    expect(rendered).toContain('href="/docs/next.html"');
     expect(rendered).toContain('href="/?path=next.md#details"');
     expect(rendered).toContain('src="/assets/images/guide.png"');
     expect(rendered).not.toContain('id="documentTitle"');
@@ -207,11 +206,23 @@ describe("shared site components", () => {
     );
     expect(html).toContain('aria-label="Display settings"');
     expect(html).toContain('value="dark"');
-    expect(html).toContain("Reading presets");
-    expect(html).toContain("Paper");
-    expect(html).toContain("Dusk");
-    expect(html).toContain("Night");
+    expect(html).toContain("<legend>Theme</legend>");
+    expect(html).toContain("<legend>Color palette</legend>");
+    expect(html).toContain("Auto");
+    expect(html).toContain("Slate");
+    expect(html).toContain("Ocean");
+    expect(html).toContain("Forest");
+    expect(html).toContain("Sand");
+    expect(html).toContain("Rose");
+    expect(html).toContain("Adjusts body text and headings together");
     expect(html).toContain('id="outlineToggle"');
+  });
+
+  it("does not render adjacent-document controls inside the reading surface", () => {
+    const html = renderToString(h(DocumentView, { document }));
+    expect(html).not.toContain("document-pagination");
+    expect(html).not.toContain('id="previousDocument"');
+    expect(html).not.toContain('id="nextDocument"');
   });
 
   it("renders a controlled document view switch outside the document", () => {
